@@ -54,9 +54,7 @@ pixHeight=4
 // We will have to decide what things are required. For our purposes, perhaps just an id and a second line with the name
 // So our parsing will have to make a special case for the second line, where it will just put that into a variable named "name", like how the other lines have variable names like "id" and "clothing"
 
-
-use serde::Deserialize;
-use std::collections::HashMap;
+use std::str::FromStr;
 
 #[derive(Debug)]
 struct BlocksWalkingData {
@@ -514,9 +512,95 @@ impl ToString for Object {
         if let Some(pixHeight) = self.pixHeight {
             output.push(format!("pixHeight={}", pixHeight));
         }
-
-
         output.join("\n")
+    }
+}
+
+impl FromStr for Object {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lines: Vec<&str> = s.split('\n').collect();
+        let id = lines[0].split('=').nth(1).unwrap().parse()?;
+        let name = lines[1].to_string();
+        let mut containable = None;
+        let mut containSize = None;
+        let mut mapChance = None;
+        let mut permanent = None;
+        let mut noFlip = None;
+        let mut sideAccess = None;
+        let mut heldInHand = None;
+        let mut blocksWalking = None;
+        let mut heatValue = None;
+        let mut rValue = None;
+        let mut person = None;
+        let mut male = None;
+        let mut deathMarker = None;
+        let mut homeMarker = None;
+        let mut floor = None;
+        let mut floorHugging = None;
+        let mut foodValue = None;
+        let mut speedMult = None;
+        let mut heldOffset = None;
+        let mut clothing = None;
+        let mut clothingOffset = None;
+        let mut deadlyDistance = None;
+        let mut useDistance = None;
+        let mut sounds = None;
+        let mut creationSoundInitialOnly = None;
+        let mut creationSoundForce = None;
+        let mut numSlots = None;
+        let mut slotSize = None;
+        let mut slotsLocked = None;
+        let mut numSprites = None;
+        let mut sprites = None;
+        let mut headIndex = None;
+        let mut bodyIndex = None;
+        let mut backFootIndex = None;
+        let mut frontFootIndex = None;
+        let mut numUses = None;
+        let mut useVanishIndex = None;
+        let mut useAppearIndex = None;
+        let mut pixHeight = None;
+
+        for line in lines.iter().skip(2) {
+            let variable_sections = line.split(',').collect::<Vec<_>>();
+            let main_variable = variable_sections[0].split('=').collect::<Vec<_>>();
+            match main_variable[0] {
+                "containable" => {
+                    containable = Some(main_variable[1] == "1");
+                }
+                "containSize" => {
+                    let containSize_val = main_variable[1].parse::<f32>()?;
+                    let mut vertSlotRot = None;
+                    for variable_section in variable_sections.iter().skip(1) {
+                        let variable_data = variable_section.split('=').collect::<Vec<_>>();
+                        match variable_data[0] {
+                            "vertSlotRot" => {
+                                vertSlotRot = Some(variable_data[1].parse()?)
+                            }
+                            _ => {}
+                        }
+                    }
+                    containSize = Some(ContainSizeData { containSize: containSize_val, vertSlotRot });
+                }
+                "mapChance" => {
+                    let mapChance_parts: Vec<&str> = main_variable[1].split('#').collect();
+                    let mapChance_val = mapChance_parts[0].parse()?;
+                    let biomes = if mapChance_parts.len() > 1 {
+                        let biomes_str = &mapChance_parts[1][7..];
+                        println!("biomes_str = {biomes_str}");
+                        Some(biomes_str.split(',').map(|s| s.parse()).collect::<Result<Vec<u8>, _>>()?)
+                    } else {
+                        None
+                    };
+                    mapChance = Some(MapChanceData { mapChance: mapChance_val, biomes });
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, foodValue, speedMult, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
 
@@ -655,8 +739,10 @@ pixHeight=4"#;
         pixHeight: Some(4),
     };
 
-    println!("\n{object_data_str}\n\n{}\n", object_data_struct.to_string());
+    // println!("\n{object_data_str}\n\n{}\n", object_data_struct.to_string());
 
     assert_eq!(object_data_struct.to_string(), object_data_str);
+
+    println!("from_str struct:\n{:#?}", Object::from_str(object_data_str));
 
 }
