@@ -704,10 +704,10 @@ pub struct Object {
     pub slotsLocked: Option<bool>,
     pub numSprites: Option<i32>,
     pub sprites: Option<Vec<SpriteData>>,
-    pub headIndex: Option<i32>, // This is for human characters, don't worry about it for now
-    pub bodyIndex: Option<i32>, // This is for human characters, don't worry about it for now
-    pub backFootIndex: Option<i32>, // This is for human characters, don't worry about it for now
-    pub frontFootIndex: Option<i32>, // This is for human characters, don't worry about it for now
+    pub headIndex: Option<Vec<i32>>, // This is for human characters, don't worry about it for now
+    pub bodyIndex: Option<Vec<i32>>, // This is for human characters, don't worry about it for now
+    pub backFootIndex: Option<Vec<i32>>, // This is for human characters, don't worry about it for now
+    pub frontFootIndex: Option<Vec<i32>>, // This is for human characters, don't worry about it for now
     pub numUses: Option<NumUsesData>,
     pub useVanishIndex: Option<Vec<i32>>,
     pub useAppearIndex: Option<Vec<i32>>,
@@ -839,17 +839,41 @@ impl ToString for Object {
                 output.push(sprite.to_string());
             }
         }
-        if let Some(headIndex) = self.headIndex {
-            output.push(format!("headIndex={}", headIndex));
+        if let Some(headIndex) = &self.headIndex {
+            let mut line = "headIndex=".to_string();
+            for index in headIndex {
+                line.push_str(&index.to_string());
+                line.push(',');
+            }
+            line.pop();
+            output.push(line);
         }
-        if let Some(bodyIndex) = self.bodyIndex {
-            output.push(format!("bodyIndex={}", bodyIndex));
+        if let Some(bodyIndex) = &self.bodyIndex {
+            let mut line = "bodyIndex=".to_string();
+            for index in bodyIndex {
+                line.push_str(&index.to_string());
+                line.push(',');
+            }
+            line.pop();
+            output.push(line);
         }
-        if let Some(backFootIndex) = self.backFootIndex {
-            output.push(format!("backFootIndex={}", backFootIndex));
+        if let Some(backFootIndex) = &self.backFootIndex {
+            let mut line = "backFootIndex=".to_string();
+            for index in backFootIndex {
+                line.push_str(&index.to_string());
+                line.push(',');
+            }
+            line.pop();
+            output.push(line);
         }
-        if let Some(frontFootIndex) = self.frontFootIndex {
-            output.push(format!("frontFootIndex={}", frontFootIndex));
+        if let Some(frontFootIndex) = &self.frontFootIndex {
+            let mut line = "frontFootIndex=".to_string();
+            for index in frontFootIndex {
+                line.push_str(&index.to_string());
+                line.push(',');
+            }
+            line.pop();
+            output.push(line);
         }
         if let Some(numUses) = &self.numUses {
             output.push(numUses.to_string());
@@ -999,10 +1023,10 @@ impl FromStr for Object {
                     }
                     sprite_vec.push(SpriteData::from_str(&lines_for_sprite.join("\n"))?);
                 },
-                "headIndex" => headIndex = Some(main_variable_value.parse()?),
-                "bodyIndex" => bodyIndex = Some(main_variable_value.parse()?),
-                "backFootIndex" => backFootIndex = Some(main_variable_value.parse()?),
-                "frontFootIndex" => frontFootIndex = Some(main_variable_value.parse()?),
+                "headIndex" => headIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
+                "bodyIndex" => bodyIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
+                "backFootIndex" => backFootIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
+                "frontFootIndex" => frontFootIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
                 "numUses" => numUses = Some(line.parse()?),
                 "useVanishIndex" => useVanishIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
                 "useAppearIndex" => useAppearIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),

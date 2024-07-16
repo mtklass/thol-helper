@@ -160,10 +160,10 @@ pixHeight=4"#;
                 invisCont: Some(false)
             }
         ]),
-        headIndex: Some(-1),
-        bodyIndex: Some(-1),
-        backFootIndex: Some(-1),
-        frontFootIndex: Some(-1),
+        headIndex: Some(vec![-1]),
+        bodyIndex: Some(vec![-1]),
+        backFootIndex: Some(vec![-1]),
+        frontFootIndex: Some(vec![-1]),
         numUses: Some(NumUsesData {
             numUses: 1,
             useChance: Some(1.0),
