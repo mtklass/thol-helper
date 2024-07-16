@@ -689,7 +689,7 @@ pub struct Object {
     pub homeMarker: Option<bool>,
     pub floor: Option<bool>,
     pub floorHugging: Option<bool>,
-    pub foodValue: Option<i32>,
+    pub foodValue: Option<Vec<i32>>,
     pub speedMult: Option<f32>,
     pub heldOffset: Option<DoublePair>,
     pub clothing: Option<ClothingData>,
@@ -792,8 +792,14 @@ impl ToString for Object {
         if let Some(floorHugging) = self.floorHugging {
             output.push(format!("floorHugging={}", floorHugging.to_i8()));
         }
-        if let Some(foodValue) = self.foodValue {
-            output.push(format!("foodValue={}", foodValue));
+        if let Some(foodValues) = &self.foodValue {
+            let mut line = "foodValue=".to_string();
+            for foodValue in foodValues {
+                line.push_str(&foodValue.to_string());
+                line.push(',');
+            }
+            line.pop();
+            output.push(line);
         }
         if let Some(speedMult) = self.speedMult {
             output.push(format!("speedMult={:.6}", speedMult));
@@ -985,7 +991,7 @@ impl FromStr for Object {
                 "homeMarker" => homeMarker = Some(main_variable_value != "0"),
                 "floor" => floor = Some(main_variable_value != "0"),
                 "floorHugging" => floorHugging = Some(main_variable_value != "0"),
-                "foodValue" => foodValue = Some(main_variable_value.parse()?),
+                "foodValue" => foodValue = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
                 "speedMult" => speedMult = Some(main_variable_value.parse()?),
                 "heldOffset" => heldOffset = Some(main_variable_value.parse()?),
                 "clothing" => clothing = Some(line.parse()?),
