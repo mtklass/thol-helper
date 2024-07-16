@@ -153,6 +153,7 @@ pixHeight=4"#;
         slotSize: Some(1.0),
         slotsLocked: Some(false),
         slotsNoSwap: None,
+        slotPosData: None,
         numSprites: Some(1),
         sprites: Some(vec![
             SpriteData {

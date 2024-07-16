@@ -724,6 +724,58 @@ impl FromStr for NumUsesData {
 }
 
 #[derive(Debug)]
+pub struct SlotPosData {
+    pub slotPos: DoublePair,
+    pub vert: Option<bool>,
+    pub parent: Option<i32>,
+}
+
+impl ToString for SlotPosData {
+    fn to_string(&self) -> String {
+        let mut output = String::new();
+        output.push_str(&format!("slotPos={}", self.slotPos.to_string()));
+        if let Some(vert) = self.vert {
+            output.push_str(&format!(",vert={}", vert.to_i8()));
+        }
+        if let Some(parent) = self.parent {
+            output.push_str(&format!(",parent={}", parent));
+        }
+        output
+    }
+}
+
+impl FromStr for SlotPosData {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let variable_sections = s.trim().split(",").collect::<Vec<_>>();
+        let slotPos = variable_sections[0]
+        .split('=')
+        .collect::<Vec<_>>()
+        [1]
+        .parse()?;
+        let mut vert = None;
+        let mut parent = None;
+        for &variable_section in variable_sections.iter().skip(1) {
+            let variable_data = variable_section.split('=').collect::<Vec<_>>();
+            match variable_data[0] {
+                "vert" => vert = Some(variable_data[1].parse::<i8>()?.to_bool()),
+                "parent" => parent = Some(variable_data[1].parse()?),
+                _ => {
+                    log::info!("SlotPosData::FromStr: Unexpected variable name {}", variable_data[0]);
+                }
+            }
+        }
+
+        Ok(SlotPosData {
+            slotPos,
+            vert,
+            parent,
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct Object {
     pub id: i32,
     pub name: String,
@@ -758,6 +810,7 @@ pub struct Object {
     pub slotSize: Option<f32>,
     pub slotsLocked: Option<bool>,
     pub slotsNoSwap: Option<bool>,
+    pub slotPosData: Option<Vec<SlotPosData>>,
     pub numSprites: Option<i32>,
     pub sprites: Option<Vec<SpriteData>>,
     pub headIndex: Option<Vec<i32>>, // This is for human characters, don't worry about it for now
@@ -899,6 +952,11 @@ impl ToString for Object {
         if let Some(slotsNoSwap) = self.slotsNoSwap {
             output.push(format!("slotsNoSwap={}", slotsNoSwap.to_i8()));
         }
+        if let Some(slotPosData) = &self.slotPosData {
+            for slotPosDatum in slotPosData {
+                output.push(slotPosDatum.to_string());
+            }
+        }
         if let Some(numSprites) = self.numSprites {
             output.push(format!("numSprites={}", numSprites));
         }
@@ -1009,6 +1067,7 @@ impl FromStr for Object {
         let mut slotSize = None;
         let mut slotsLocked = None;
         let mut slotsNoSwap = None;
+        let mut slotPosData = None;
         let mut numSprites = None;
         let mut sprites = None;
         let mut headIndex = None;
@@ -1027,6 +1086,7 @@ impl FromStr for Object {
         lines_iter.next();
 
         let mut sprite_vec = Vec::new();
+        let mut slotPos_vec = Vec::new();
 
         while let Some(&line) = lines_iter.next() {
             let line = line.trim();
@@ -1067,6 +1127,7 @@ impl FromStr for Object {
                 "slotSize" => slotSize = Some(main_variable_value.parse()?),
                 "slotsLocked" => slotsLocked = Some(main_variable_value != "0"),
                 "slotsNoSwap" => slotsNoSwap = Some(main_variable_value != "0"),
+                "slotPos" => slotPos_vec.push(line.parse()?),
                 "numSprites" => numSprites = Some(main_variable_value.parse()?),
                 "spriteID" => {
                     // We will assume numSprites has come before any sprites
@@ -1105,13 +1166,9 @@ impl FromStr for Object {
                 }
             }
         }
-        // We will make sure numSprites is something and non-zero
-        if numSprites.is_none() || numSprites.unwrap() == 0 {
-            sprites = None;
-        } else {
-            sprites = Some(sprite_vec);
-        }
+        if !sprite_vec.is_empty() { sprites = Some(sprite_vec) };
+        if !slotPos_vec.is_empty() { slotPosData = Some(slotPos_vec) };
 
-        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, wallLayer, foodValue, speedMult, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, slotsNoSwap, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, wallLayer, foodValue, speedMult, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
