@@ -1,9 +1,11 @@
+mod object;
+
 use std::{fs, io::Read, process, str::FromStr};
 
 use anyhow::Result;
-use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundData, SoundDataVec, SoundsData, SpriteData};
+use pretty_assertions::assert_eq;
 
-mod object;
+use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundData, SoundDataVec, SoundsData, SpriteData};
 
 fn main() -> Result<()> {
     // Read each object txt file in the provided directory, and attempt to parse it.
