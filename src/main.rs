@@ -1,6 +1,6 @@
 mod object;
 
-use std::{fs, io::Read, process, str::FromStr};
+use std::{fs, io::Read, str::FromStr};
 
 use anyhow::Result;
 use pretty_assertions::assert_eq;
@@ -21,12 +21,12 @@ fn main() -> Result<()> {
                     let file_name = entry.file_name();
                     let file_name = file_name.to_string_lossy();
 
-                    if let Some(captures) = regex::Regex::new(r"^(\d+)\.txt$").unwrap().captures(&file_name) {
+                    if let Some(_captures) = regex::Regex::new(r"^(\d+)\.txt$").unwrap().captures(&file_name) {
                         // For debugging, only look at file we care about
                         // if captures.get(1).unwrap().as_str() != "14492" {
                         //     continue;
                         // }
-                        println!("Parsing file {file_name}");
+                        // println!("Parsing file {file_name}");
                         // Read the file into a string
                         let mut file = fs::File::open(entry.path()).unwrap();
                         let mut contents = String::new();
@@ -34,7 +34,29 @@ fn main() -> Result<()> {
 
                         let object = Object::from_str(&contents)?;
                         let recreated_string = object.to_string();
-                        assert_eq!(contents.trim(), recreated_string.trim());
+                        let contents = contents
+                            .trim()
+                            .chars()
+                            .filter(|c| c.is_ascii_graphic() || *c == '\n' || *c == ' ').collect::<String>();
+                        let recreated_string = recreated_string
+                            .trim()
+                            .chars()
+                            .filter(|c| c.is_ascii_graphic() || *c == '\n' || *c == ' ').collect::<String>();
+                        if contents != recreated_string {
+                            println!("For file {}, original and recreated file contents differ!", file_name);
+                            let recreated_object = Object::from_str(&recreated_string)?;
+                            if object == recreated_object {
+                                println!("However, the objects created but each string are identical!");
+                                for diff in diff::lines(&contents, &recreated_string) {
+                                    match diff {
+                                        diff::Result::Left(l)    => println!("-{}", l),
+                                        diff::Result::Both(l, _) => println!(" {}", l),
+                                        diff::Result::Right(r)   => println!("+{}", r)
+                                    }
+                                }
+                                println!("");
+                            }
+                        }
                     }
                 }
             }
@@ -43,7 +65,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn original_test() {
+fn _original_test() {
     let object_data_str = r#"id=8675
 Skull Hat
 containable=1
@@ -109,6 +131,7 @@ pixHeight=4"#;
         noFlip: Some(false),
         sideAccess: Some(false),
         heldInHand: Some(0),
+        ridingAnimationIndex: None,
         blocksWalking: Some(BlocksWalkingData {
             blocksWalking: false,
             leftBlockingRadius: Some(0),

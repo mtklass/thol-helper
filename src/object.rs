@@ -2,7 +2,7 @@
 use anyhow::{anyhow, Result};
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BlocksWalkingData {
     pub blocksWalking: bool,
     pub leftBlockingRadius: Option<i32>,
@@ -62,7 +62,7 @@ impl FromStr for BlocksWalkingData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct MapChanceData {
     // line looks something like this: mapChance=0.000000#biomes_0,1,2,3
     pub mapChance: f32,
@@ -112,7 +112,7 @@ impl FromStr for MapChanceData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct PersonData {
     pub person: i8,
     pub noSpawn: Option<bool>,
@@ -157,7 +157,7 @@ impl FromStr for PersonData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct PermanentData {
     pub permanent: bool,
     pub minPickupAge: Option<i32>,
@@ -203,7 +203,7 @@ impl FromStr for PermanentData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ContainSizeData {
     pub containSize: f32,
     pub vertSlotRot: Option<f32>,
@@ -257,7 +257,7 @@ impl FromStr for ContainSizeData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ClothingData {
     pub clothing: ClothingType,
 }
@@ -278,7 +278,7 @@ impl FromStr for ClothingData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ClothingType {
     Bottom,
     Head,
@@ -323,7 +323,7 @@ impl FromStr for ClothingType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SoundsData {
     pub data: String,
 }
@@ -344,7 +344,7 @@ impl FromStr for SoundsData {
     }
 }
 
-// #[derive(Debug)]
+// #[derive(Debug, PartialEq)]
 // pub struct SoundsData {
 //     pub creationSound: SoundDataVec,
 //     pub usingSound: SoundDataVec,
@@ -382,7 +382,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-// #[derive(Debug)]
+// #[derive(Debug, PartialEq)]
 // pub struct SoundData {
 //     pub id: i32,
 //     pub volume: f64
@@ -411,7 +411,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-// #[derive(Debug)]
+// #[derive(Debug, PartialEq)]
 // pub struct SoundDataVec(pub Vec<SoundData>);
 
 // impl ToString for SoundDataVec {
@@ -450,7 +450,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct NumSlotsData {
     pub numSlots: i32,
     pub timeStretch: Option<f32>,
@@ -495,7 +495,7 @@ impl FromStr for NumSlotsData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ColorData {
     pub red: f32,
     pub green: f32,
@@ -526,7 +526,7 @@ impl FromStr for ColorData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SpriteData {
     pub spriteID: i32,
     pub pos: DoublePair,
@@ -611,10 +611,10 @@ impl FromStr for SpriteData {
         let mut spritesAdditiveBlend = None;
         let mut ignoredCont = None;
         for &variable_section in variable_sections.iter().skip(1) {
-            let variable_data = variable_section.split('=').collect::<Vec<_>>();
+            let variable_data = variable_section.split('=').map(|v| v.trim()).collect::<Vec<_>>();
             match variable_data[0] {
-                "pos" => pos = Some(variable_data[1].parse::<DoublePair>().expect("Error parsing pos value")),
-                "rot" => rot = Some(variable_data[1].parse::<f64>().expect("Error parsing rot value")),
+                "pos" => pos = Some(variable_data[1].parse::<DoublePair>().expect(&format!("Error parsing pos value: {}", variable_data[1]))),
+                "rot" => rot = Some(variable_data[1].parse::<f64>().expect(&format!("Error parsing rot value: {}", variable_data[1]))),
                 "hFlip" => hFlip = Some(variable_data[1].parse::<i8>().expect("Error parsing hFlip value").to_bool()),
                 "color" => color = Some(variable_section.parse::<ColorData>().expect("Error parsing color value")),
                 "ageRange" => ageRange = Some(variable_data[1].parse::<DoublePair>().expect("Error parsing ageRange value")),
@@ -665,7 +665,7 @@ impl FromStr for SpriteData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DoublePair(pub f64, pub f64);
 
 impl ToString for DoublePair {
@@ -683,7 +683,7 @@ impl FromStr for DoublePair {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct I32Pair(pub i32, pub i32);
 
 impl ToString for I32Pair {
@@ -701,7 +701,7 @@ impl FromStr for I32Pair {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct InvisHoldingData {
     pub invisHolding: bool,
     pub invisWorn: i32,
@@ -748,7 +748,7 @@ impl FromStr for InvisHoldingData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct NumUsesData {
     pub numUses: i32,
     pub useChance: Option<f32>,
@@ -776,7 +776,7 @@ impl FromStr for NumUsesData {
         .collect::<Vec<_>>()
         [1]
         .parse()?;
-        let useChance = if (variable_sections.len() > 1) {
+        let useChance = if variable_sections.len() > 1 {
             variable_sections[1].parse().ok()
         } else {
             None
@@ -788,7 +788,7 @@ impl FromStr for NumUsesData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SlotPosData {
     pub slotPos: DoublePair,
     pub vert: Option<i32>,
@@ -840,7 +840,7 @@ impl FromStr for SlotPosData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Object {
     pub id: i32,
     pub name: String,
@@ -850,6 +850,7 @@ pub struct Object {
     pub noFlip: Option<bool>,
     pub sideAccess: Option<bool>,
     pub heldInHand: Option<i8>,
+    pub ridingAnimationIndex: Option<i32>,
     pub blocksWalking: Option<BlocksWalkingData>,
     pub mapChance: Option<MapChanceData>,
     pub heatValue: Option<i32>,
@@ -939,6 +940,9 @@ impl ToString for Object {
         }
         if let Some(heldInHand) = self.heldInHand {
             output.push(format!("heldInHand={}", heldInHand));
+        }
+        if let Some(ridingAnimationIndex) = self.ridingAnimationIndex {
+            output.push(format!("ridingAnimationIndex={}", ridingAnimationIndex));
         }
         if let Some(blocksWalking) = &self.blocksWalking {
             output.push(blocksWalking.to_string());
@@ -1124,6 +1128,7 @@ impl FromStr for Object {
         let mut noFlip = None;
         let mut sideAccess = None;
         let mut heldInHand = None;
+        let mut ridingAnimationIndex = None;
         let mut blocksWalking = None;
         let mut heatValue = None;
         let mut rValue = None;
@@ -1190,6 +1195,7 @@ impl FromStr for Object {
                 "noFlip" => noFlip = Some(main_variable_value != "0"),
                 "sideAccess" => sideAccess = Some(main_variable_value != "0"),
                 "heldInHand" => heldInHand = Some(main_variable_value.parse()?),
+                "ridingAnimationIndex" => ridingAnimationIndex = Some(main_variable_value.parse()?),
                 "blocksWalking" => blocksWalking = Some(line.parse()?),
                 "heatValue" => heatValue = Some(main_variable_value.parse()?),
                 "rValue" => rValue = Some(main_variable_value.parse()?),
@@ -1260,6 +1266,6 @@ impl FromStr for Object {
         if !sprite_vec.is_empty() { sprites = Some(sprite_vec) };
         if !slotPos_vec.is_empty() { slotPosData = Some(slotPos_vec) };
 
-        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, partialFloor, floorHugging, frontWall, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotStyle, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, ridingAnimationIndex, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, partialFloor, floorHugging, frontWall, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotStyle, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
