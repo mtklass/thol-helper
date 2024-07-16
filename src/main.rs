@@ -1,7 +1,7 @@
 use std::{fs, io::Read, str::FromStr};
 
 use anyhow::Result;
-use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundData, SoundsData, SpriteData};
+use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundData, SoundDataVec, SoundsData, SpriteData};
 
 mod object;
 
@@ -133,10 +133,10 @@ pixHeight=4"#;
         deadlyDistance: Some(0),
         useDistance: Some(1),
         sounds: Some(SoundsData {
-            creationSound: SoundData { id: 153, volume: 0.225  },
-            usingSound: SoundData { id: 286, volume: 0.10101  },
-            eatingSound: SoundData { id: -1, volume: 0.0  },
-            decaySound: SoundData { id: -1, volume: 0.0  },
+            creationSound: SoundDataVec { 0: vec![SoundData { id: 153, volume: 0.225 }] },
+            usingSound: SoundDataVec { 0: vec![SoundData { id: 286, volume: 0.10101 }] },
+            eatingSound: SoundDataVec { 0: vec![SoundData { id: -1, volume: 0.0 }] },
+            decaySound: SoundDataVec { 0: vec![SoundData { id: -1, volume: 0.0 }] },
         }),
         creationSoundInitialOnly: Some(false),
         creationSoundForce: Some(false),

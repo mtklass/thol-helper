@@ -342,11 +342,56 @@ impl FromStr for SoundData {
 }
 
 #[derive(Debug)]
+pub struct SoundDataVec(pub Vec<SoundData>);
+
+impl ToString for SoundDataVec {
+    fn to_string(&self) -> String {
+        self.0
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("#")
+    }
+}
+
+//use the code from object's fromstr and put it here instead, and then use it in object's fromstr
+impl FromStr for SoundDataVec {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let sound_sections = s
+            .split('#')
+            .filter_map(|sound_section| {
+                let sound_data_sections = sound_section.split(':').collect::<Vec<_>>();
+                let id = sound_data_sections[0].parse::<i32>();
+                let volume = sound_data_sections[1].parse::<f64>();
+                if id.is_err() || volume.is_err() {
+                    return None;
+                } else {
+                    return Some(SoundData{ id: id.unwrap(), volume: volume.unwrap() })
+                }
+            })
+            .collect::<Vec<_>>();
+        // sound_sections are #:#
+
+        Ok(SoundDataVec {
+            0: vec![]
+        })
+
+        // let variable_sections = s.split(':').collect::<Vec<_>>();
+        // Ok(SoundData {
+        //     id: variable_sections[0].parse()?,
+        //     volume: variable_sections[1].parse()?
+        // })
+    }
+}
+
+#[derive(Debug)]
 pub struct SoundsData {
-    pub creationSound: SoundData,
-    pub usingSound: SoundData,
-    pub eatingSound: SoundData,
-    pub decaySound: SoundData,
+    pub creationSound: SoundDataVec,
+    pub usingSound: SoundDataVec,
+    pub eatingSound: SoundDataVec,
+    pub decaySound: SoundDataVec,
 }
 
 impl ToString for SoundsData {
@@ -372,10 +417,10 @@ impl FromStr for SoundsData {
         let variable_sections = line_sections[1].split(',').collect::<Vec<_>>();
         // First section is person. Beyond that, we deal with whatever supported values are present
         Ok(SoundsData {
-            creationSound: SoundData::from_str(variable_sections[0])?,
-            usingSound: SoundData::from_str(variable_sections[1])?,
-            eatingSound: SoundData::from_str(variable_sections[2])?,
-            decaySound: SoundData::from_str(variable_sections[3])?,
+            creationSound: SoundDataVec::from_str(variable_sections[0])?,
+            usingSound: SoundDataVec::from_str(variable_sections[1])?,
+            eatingSound: SoundDataVec::from_str(variable_sections[2])?,
+            decaySound: SoundDataVec::from_str(variable_sections[3])?,
         })
     }
 }
