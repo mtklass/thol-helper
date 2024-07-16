@@ -261,7 +261,6 @@ impl FromStr for ClothingData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("parsing {s}");
         let clothing = s.split('=').collect::<Vec<_>>()[1].parse()?;
 
         Ok(ClothingData { clothing })
@@ -936,12 +935,10 @@ impl FromStr for Object {
         while let Some(&line) = lines_iter.next() {
 
             let line_sections = line.split('=').collect::<Vec<_>>();
-            println!("line = {line}");
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
 
             // let variable_sections = line_sections[1].split(',').collect::<Vec<_>>();
-            println!("line_sections = {:?}", line_sections);
             // let mut sprite_vec = Vec::new();
 
             let variable_sections = line.split(',').collect::<Vec<_>>();
