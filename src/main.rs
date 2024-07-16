@@ -130,6 +130,7 @@ pixHeight=4"#;
         homeMarker: Some(false),
         floor: Some(false),
         floorHugging: Some(false),
+        wallLayer: None,
         foodValue: Some(vec![0]),
         speedMult: Some(1.0),
         heldOffset: Some(DoublePair(23.0, 29.0)),
