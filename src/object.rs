@@ -507,8 +507,8 @@ pub struct SpriteData {
     pub parent: i32,
     pub invisHolding: InvisHoldingData,
     pub invisCont: Option<bool>,
-    pub spritesDrawnBehind: Option<Vec<bool>>,
-    pub spritesAdditiveBlend: Option<Vec<bool>>,
+    pub spritesDrawnBehind: Option<Vec<i8>>,
+    pub spritesAdditiveBlend: Option<Vec<i8>>,
 }
 
 impl ToString for SpriteData {
@@ -526,10 +526,10 @@ parent={}
             output.push_str(&format!("\ninvisCont={}", invisCont.to_i8()));
         }
         if let Some(spritesDrawnBehind) = &self.spritesDrawnBehind {
-            output.push_str(&format!("\nspritesDrawnBehind={}", spritesDrawnBehind.iter().map(|s| s.to_i8().to_string()).collect::<Vec<_>>().join(",")));
+            output.push_str(&format!("\nspritesDrawnBehind={}", spritesDrawnBehind.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",")));
         }
         if let Some(spritesAdditiveBlend) = &self.spritesAdditiveBlend {
-            output.push_str(&format!("\nspritesAdditiveBlend={}", spritesAdditiveBlend.iter().map(|s| s.to_i8().to_string()).collect::<Vec<_>>().join(",")));
+            output.push_str(&format!("\nspritesAdditiveBlend={}", spritesAdditiveBlend.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",")));
         }
         output
     }
@@ -587,17 +587,11 @@ impl FromStr for SpriteData {
                 "invisCont" => invisCont = Some(variable_data[1].parse::<i8>().expect("Error parsing invisCont value").to_bool()),
                 "spritesDrawnBehind" => spritesDrawnBehind = Some(variable_data[1]
                     .split(",")
-                    .filter_map(|v| v.parse::<i8>()
-                        .and_then(|v| Ok(v.to_bool()))
-                        .ok()
-                    )
+                    .filter_map(|v| v.parse::<i8>().ok())
                     .collect::<Vec<_>>()
                 ),"spritesAdditiveBlend" => spritesAdditiveBlend = Some(variable_data[1]
                     .split(",")
-                    .filter_map(|v| v.parse::<i8>()
-                        .and_then(|v| Ok(v.to_bool()))
-                        .ok()
-                    )
+                    .filter_map(|v| v.parse::<i8>().ok())
                     .collect::<Vec<_>>()
                 ),
                 _ => {
@@ -714,10 +708,8 @@ impl FromStr for NumUsesData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!("parsing {s}");
         let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is numUses. Beyond that, we deal with whatever supported values are present
-        println!("variable_sections: {:?}", variable_sections);
         let numUses = variable_sections[0]
         .split('=')
         .collect::<Vec<_>>()
@@ -1068,7 +1060,7 @@ impl FromStr for Object {
                 "numSlots" => numSlots = Some(line.parse()?),
                 "slotSize" => slotSize = Some(main_variable_value.parse()?),
                 "slotsLocked" => slotsLocked = Some(main_variable_value != "0"),
-                "slotsNoSwap" => slotsNoSwap = Some(main_variable_value.parse()?),
+                "slotsNoSwap" => slotsNoSwap = Some(main_variable_value != "0"),
                 "numSprites" => numSprites = Some(main_variable_value.parse()?),
                 "spriteID" => {
                     // We will assume numSprites has come before any sprites
