@@ -152,6 +152,7 @@ pixHeight=4"#;
             timeStretch: Some(1.0),
         }),
         slotSize: Some(1.0),
+        slotStyle: None,
         slotsLocked: Some(false),
         slotsNoSwap: None,
         slotPosData: None,

@@ -855,6 +855,7 @@ pub struct Object {
     pub creationSoundForce: Option<bool>,
     pub numSlots: Option<NumSlotsData>,
     pub slotSize: Option<f32>,
+    pub slotStyle: Option<i32>,
     pub slotsLocked: Option<bool>,
     pub slotsNoSwap: Option<bool>,
     pub slotPosData: Option<Vec<SlotPosData>>,
@@ -996,6 +997,9 @@ impl ToString for Object {
         if let Some(slotSize) = self.slotSize {
             output.push(format!("slotSize={:.6}", slotSize));
         }
+        if let Some(slotStyle) = self.slotStyle {
+            output.push(format!("slotStyle={}", slotStyle));
+        }
         if let Some(slotsLocked) = self.slotsLocked {
             output.push(format!("slotsLocked={}", slotsLocked.to_i8()));
         }
@@ -1116,6 +1120,7 @@ impl FromStr for Object {
         let mut creationSoundForce = None;
         let mut numSlots = None;
         let mut slotSize = None;
+        let mut slotStyle = None;
         let mut slotsLocked = None;
         let mut slotsNoSwap = None;
         let mut slotPosData = None;
@@ -1179,6 +1184,7 @@ impl FromStr for Object {
                 "creationSoundForce" => creationSoundForce = Some(main_variable_value != "0"),
                 "numSlots" => numSlots = Some(line.parse()?),
                 "slotSize" => slotSize = Some(main_variable_value.parse()?),
+                "slotStyle" => slotStyle = Some(main_variable_value.parse()?),
                 "slotsLocked" => slotsLocked = Some(main_variable_value != "0"),
                 "slotsNoSwap" => slotsNoSwap = Some(main_variable_value != "0"),
                 "slotPos" => slotPos_vec.push(line.parse()?),
@@ -1223,6 +1229,6 @@ impl FromStr for Object {
         if !sprite_vec.is_empty() { sprites = Some(sprite_vec) };
         if !slotPos_vec.is_empty() { slotPosData = Some(slotPos_vec) };
 
-        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotStyle, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
