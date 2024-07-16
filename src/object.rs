@@ -749,14 +749,14 @@ impl FromStr for SlotPosData {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let variable_sections = s.trim().split(",").collect::<Vec<_>>();
-        let slotPos = variable_sections[0]
+        let slotPos = [variable_sections[0], variable_sections[1]].join(",")
         .split('=')
         .collect::<Vec<_>>()
         [1]
         .parse()?;
         let mut vert = None;
         let mut parent = None;
-        for &variable_section in variable_sections.iter().skip(1) {
+        for &variable_section in variable_sections.iter().skip(2) {
             let variable_data = variable_section.split('=').collect::<Vec<_>>();
             match variable_data[0] {
                 "vert" => vert = Some(variable_data[1].parse::<i8>()?.to_bool()),
@@ -1094,6 +1094,8 @@ impl FromStr for Object {
             let line_sections = line.split('=').collect::<Vec<_>>();
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
+
+            // println!("Parsing variable named {main_variable_name}");
 
             match main_variable_name {
                 "containable" => containable = Some(main_variable_value != "0"),
