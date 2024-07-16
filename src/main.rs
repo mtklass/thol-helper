@@ -168,6 +168,7 @@ pixHeight=4"#;
                 invisCont: Some(false),
                 spritesDrawnBehind: None,
                 spritesAdditiveBlend: None,
+                ignoredCont: None,
             }
         ]),
         headIndex: Some(vec![-1]),

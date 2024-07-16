@@ -520,6 +520,7 @@ pub struct SpriteData {
     pub invisCont: Option<bool>,
     pub spritesDrawnBehind: Option<Vec<i8>>,
     pub spritesAdditiveBlend: Option<Vec<i8>>,
+    pub ignoredCont: Option<Vec<i8>>,
 }
 
 impl ToString for SpriteData {
@@ -542,6 +543,9 @@ parent={}
         if let Some(spritesAdditiveBlend) = &self.spritesAdditiveBlend {
             output.push_str(&format!("\nspritesAdditiveBlend={}", spritesAdditiveBlend.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",")));
         }
+        if let Some(ignoredCont) = &self.ignoredCont {
+            output.push_str(&format!("\nignoredCont={}", ignoredCont.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",")));
+        }
         output
     }
 }
@@ -559,6 +563,7 @@ impl SpriteData {
             "invisCont" => true,
             "spritesDrawnBehind" => true,
             "spritesAdditiveBlend" => true,
+            "ignoredCont" => true,
             _ => false,
         }
     }
@@ -585,6 +590,7 @@ impl FromStr for SpriteData {
         let mut invisCont = None;
         let mut spritesDrawnBehind = None;
         let mut spritesAdditiveBlend = None;
+        let mut ignoredCont = None;
         for &variable_section in variable_sections.iter().skip(1) {
             let variable_data = variable_section.split('=').collect::<Vec<_>>();
             match variable_data[0] {
@@ -600,7 +606,13 @@ impl FromStr for SpriteData {
                     .split(",")
                     .filter_map(|v| v.parse::<i8>().ok())
                     .collect::<Vec<_>>()
-                ),"spritesAdditiveBlend" => spritesAdditiveBlend = Some(variable_data[1]
+                ),
+                "spritesAdditiveBlend" => spritesAdditiveBlend = Some(variable_data[1]
+                    .split(",")
+                    .filter_map(|v| v.parse::<i8>().ok())
+                    .collect::<Vec<_>>()
+                ),
+                "ignoredCont" => ignoredCont = Some(variable_data[1]
                     .split(",")
                     .filter_map(|v| v.parse::<i8>().ok())
                     .collect::<Vec<_>>()
@@ -629,6 +641,7 @@ impl FromStr for SpriteData {
             invisCont,
             spritesDrawnBehind,
             spritesAdditiveBlend,
+            ignoredCont
         })
     }
 }
