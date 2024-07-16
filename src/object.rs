@@ -715,7 +715,11 @@ impl FromStr for NumUsesData {
         .collect::<Vec<_>>()
         [1]
         .parse()?;
-        let useChance = variable_sections[1].parse().ok();
+        let useChance = if (variable_sections.len() > 1) {
+            variable_sections[1].parse().ok()
+        } else {
+            None
+        };
         Ok(NumUsesData {
             numUses,
             useChance,
@@ -1095,7 +1099,7 @@ impl FromStr for Object {
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
 
-            // println!("Parsing variable named {main_variable_name}");
+            println!("Parsing variable named {main_variable_name}");
 
             match main_variable_name {
                 "containable" => containable = Some(main_variable_value != "0"),
