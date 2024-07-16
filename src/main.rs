@@ -131,6 +131,7 @@ pixHeight=4"#;
         floor: Some(false),
         floorHugging: Some(false),
         wallLayer: None,
+        frontWall: None,
         foodValue: Some(vec![0]),
         speedMult: Some(1.0),
         containOffset: None,
