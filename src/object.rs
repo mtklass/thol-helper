@@ -228,11 +228,22 @@ impl FromStr for ContainSizeData {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is containSize, second optional section is vertSlotRotlet containSize_val = main_variable_value.parse::<f32>()?;
-        let containSize = variable_sections[0]
-            .split('=')
-            .collect::<Vec<_>>()
-            [1]
-            .parse()?;
+        let containSize_var_str = variable_sections[0]
+        .split('=')
+        .collect::<Vec<_>>()
+        [1];
+        let containSizeF32Result = containSize_var_str.parse::<f32>();
+        let containSize = if let Ok(containSizeF32) = containSizeF32Result {
+            containSizeF32
+        } else {
+            let containSizeI32Result = containSize_var_str.parse::<i32>();
+            if let Ok(containSizeI32) = containSizeI32Result {
+                containSizeI32 as f32
+            }
+            else {
+                panic!("Invalid containSize data: {s}");
+            }
+        };
         let mut vertSlotRot = None;
         for &variable_section in variable_sections.iter().skip(1) {
             let variable_data = variable_section.split('=').collect::<Vec<_>>();
