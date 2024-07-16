@@ -1,4 +1,4 @@
-use std::{fs, io::Read, str::FromStr};
+use std::{fs, io::Read, process, str::FromStr};
 
 use anyhow::Result;
 use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundData, SoundDataVec, SoundsData, SpriteData};
@@ -20,8 +20,11 @@ fn main() -> Result<()> {
                     let file_name = file_name.to_string_lossy();
 
                     if let Some(captures) = regex::Regex::new(r"^(\d+)\.txt$").unwrap().captures(&file_name) {
-                        println!("Found matching file: {}", &file_name);
-
+                        // For debugging, only look at file we care about
+                        // if captures.get(1).unwrap().as_str() != "14492" {
+                        //     continue;
+                        // }
+                        println!("Parsing file {file_name}");
                         // Read the file into a string
                         let mut file = fs::File::open(entry.path()).unwrap();
                         let mut contents = String::new();

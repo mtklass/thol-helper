@@ -30,7 +30,7 @@ impl FromStr for BlocksWalkingData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(',').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is blocksWalking. Beyond that, we deal with whatever supported values are present
         let blocksWalking = variable_sections[0]
         .split('=')
@@ -96,7 +96,7 @@ impl FromStr for MapChanceData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split('#').collect::<Vec<_>>();
+        let variable_sections = s.trim().split('#').collect::<Vec<_>>();
         // First section is blocksWalking. Beyond that, we deal with whatever supported values are present
         let mapChance = variable_sections[0]
         .split('=')
@@ -132,7 +132,7 @@ impl FromStr for PersonData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(',').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is person. Beyond that, we deal with whatever supported values are present
         let person = variable_sections[0]
         .split('=')
@@ -178,7 +178,7 @@ impl FromStr for PermanentData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(',').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is permanent. Beyond that, we deal with whatever supported values are present
         let permanent = variable_sections[0]
         .split('=')
@@ -225,7 +225,7 @@ impl FromStr for ContainSizeData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(',').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is containSize, second optional section is vertSlotRotlet containSize_val = main_variable[1].parse::<f32>()?;
         let containSize = variable_sections[0]
             .split('=')
@@ -261,7 +261,7 @@ impl FromStr for ClothingData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let clothing = s.split('=').collect::<Vec<_>>()[1].parse()?;
+        let clothing = s.trim().split('=').collect::<Vec<_>>()[1].parse()?;
 
         Ok(ClothingData { clothing })
     }
@@ -297,7 +297,7 @@ impl FromStr for ClothingType {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
+        match s.trim() {
             "b" => Ok(ClothingType::Bottom),
             "h" => Ok(ClothingType::Head),
             "p" => Ok(ClothingType::Pack),
@@ -333,7 +333,7 @@ impl FromStr for SoundData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(':').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(':').collect::<Vec<_>>();
         Ok(SoundData {
             id: variable_sections[0].parse()?,
             volume: variable_sections[1].parse()?
@@ -359,7 +359,7 @@ impl FromStr for SoundDataVec {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let sound_sections = s
+        let sound_sections = s.trim()
             .split('#')
             .filter_map(|sound_section| {
                 let sound_data_sections = sound_section.split(':').collect::<Vec<_>>();
@@ -413,7 +413,7 @@ impl FromStr for SoundsData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let line_sections = s.split('=').collect::<Vec<_>>();
+        let line_sections = s.trim().split('=').collect::<Vec<_>>();
         let variable_sections = line_sections[1].split(',').collect::<Vec<_>>();
         // First section is person. Beyond that, we deal with whatever supported values are present
         Ok(SoundsData {
@@ -446,7 +446,7 @@ impl FromStr for NumSlotsData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split('#').collect::<Vec<_>>();
+        let variable_sections = s.trim().split('#').collect::<Vec<_>>();
         // First section is numSlots. Beyond that, we deal with whatever supported values are present
         let numSlots = variable_sections[0]
         .split('=')
@@ -487,7 +487,7 @@ impl FromStr for ColorData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let color_data = s.split('=')
+        let color_data = s.trim().split('=')
         .collect::<Vec<_>>()
         [1]
         .split(',')
@@ -552,7 +552,7 @@ impl FromStr for SpriteData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split('\n').collect::<Vec<_>>();
+        let variable_sections = s.trim().split('\n').collect::<Vec<_>>();
         // First section is spriteID. Beyond that, we deal with whatever supported values are present
         let spriteID = variable_sections[0]
         .split('=')
@@ -617,7 +617,7 @@ impl FromStr for DoublePair {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = s.split(',').filter_map(|f| f.parse().ok()).collect::<Vec<_>>();
+        let parts = s.trim().split(',').filter_map(|f| f.parse().ok()).collect::<Vec<_>>();
         Ok(DoublePair(parts[0], parts[1]))
     }
 }
@@ -639,7 +639,7 @@ impl FromStr for InvisHoldingData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(',').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is invisHolding. Beyond that, we deal with whatever supported values are present
         let invisHolding = variable_sections[0]
         .split('=')
@@ -679,7 +679,7 @@ impl FromStr for NumUsesData {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.split(',').collect::<Vec<_>>();
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
         // First section is numUses. Beyond that, we deal with whatever supported values are present
         let numUses = variable_sections[0]
         .split('=')
@@ -958,8 +958,8 @@ impl FromStr for Object {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let lines: Vec<&str> = s.split('\n').collect();
-        let id = lines[0].split('=').nth(1).unwrap().parse()?;
+        let lines: Vec<&str> = s.trim().split('\n').collect();
+        let id = lines[0].split('=').nth(1).unwrap().trim().parse::<i32>()?;
         let name = lines[1].to_string();
         let mut containable = None;
         let mut containSize = None;
@@ -1008,7 +1008,8 @@ impl FromStr for Object {
         lines_iter.next();
 
         while let Some(&line) = lines_iter.next() {
-
+            let line = line.trim();
+            if line.is_empty() {continue;}
             let line_sections = line.split('=').collect::<Vec<_>>();
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
