@@ -133,6 +133,7 @@ pixHeight=4"#;
         wallLayer: None,
         foodValue: Some(vec![0]),
         speedMult: Some(1.0),
+        containOffset: None,
         heldOffset: Some(DoublePair(23.0, 29.0)),
         clothing: Some(ClothingData { clothing: ClothingType::Head }),
         clothingOffset: Some(DoublePair(3.0, 69.999996)),

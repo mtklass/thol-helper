@@ -665,6 +665,24 @@ impl FromStr for DoublePair {
 }
 
 #[derive(Debug)]
+pub struct I32Pair(pub i32, pub i32);
+
+impl ToString for I32Pair {
+    fn to_string(&self) -> String {
+        format!("{},{}", self.0, self.1)
+    }
+}
+
+impl FromStr for I32Pair {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts = s.trim().split(',').filter_map(|f| f.parse().ok()).collect::<Vec<_>>();
+        Ok(I32Pair(parts[0], parts[1]))
+    }
+}
+
+#[derive(Debug)]
 pub struct InvisHoldingData {
     pub invisHolding: bool,
     pub invisWorn: i32,
@@ -826,6 +844,7 @@ pub struct Object {
     pub wallLayer: Option<bool>,
     pub foodValue: Option<Vec<i32>>,
     pub speedMult: Option<f32>,
+    pub containOffset: Option<I32Pair>,
     pub heldOffset: Option<DoublePair>,
     pub clothing: Option<ClothingData>,
     pub clothingOffset: Option<DoublePair>,
@@ -944,8 +963,11 @@ impl ToString for Object {
         if let Some(speedMult) = self.speedMult {
             output.push(format!("speedMult={:.6}", speedMult));
         }
+        if let Some(containOffset) = &self.containOffset {
+            output.push(format!("containOffset={}", containOffset.to_string()));
+        }
         if let Some(heldOffset) = &self.heldOffset {
-            output.push(format!("heldOffset={:.6},{:.6}", heldOffset.0, heldOffset.1));
+            output.push(format!("heldOffset={}", heldOffset.to_string()));
         }
         if let Some(clothing) = &self.clothing {
             output.push(clothing.to_string());
@@ -1083,6 +1105,7 @@ impl FromStr for Object {
         let mut wallLayer = None;
         let mut foodValue = None;
         let mut speedMult = None;
+        let mut containOffset = None;
         let mut heldOffset = None;
         let mut clothing = None;
         let mut clothingOffset = None;
@@ -1145,6 +1168,7 @@ impl FromStr for Object {
                 "wallLayer" => wallLayer = Some(main_variable_value != "0"),
                 "foodValue" => foodValue = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
                 "speedMult" => speedMult = Some(main_variable_value.parse()?),
+                "containOffset" => containOffset = Some(main_variable_value.parse()?),
                 "heldOffset" => heldOffset = Some(main_variable_value.parse()?),
                 "clothing" => clothing = Some(line.parse()?),
                 "clothingOffset" => clothingOffset = Some(main_variable_value.parse()?),
@@ -1199,6 +1223,6 @@ impl FromStr for Object {
         if !sprite_vec.is_empty() { sprites = Some(sprite_vec) };
         if !slotPos_vec.is_empty() { slotPosData = Some(slotPos_vec) };
 
-        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, wallLayer, foodValue, speedMult, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
