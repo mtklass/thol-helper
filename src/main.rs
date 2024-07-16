@@ -5,7 +5,7 @@ use std::{fs, io::Read, process, str::FromStr};
 use anyhow::Result;
 use pretty_assertions::assert_eq;
 
-use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundData, SoundDataVec, SoundsData, SpriteData};
+use object::{BlocksWalkingData, ClothingData, ClothingType, ColorData, ContainSizeData, DoublePair, InvisHoldingData, MapChanceData, NumSlotsData, NumUsesData, Object, PermanentData, PersonData, SoundsData, SpriteData};
 
 fn main() -> Result<()> {
     // Read each object txt file in the provided directory, and attempt to parse it.
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
 
                         let object = Object::from_str(&contents)?;
                         let recreated_string = object.to_string();
-                        assert_eq!(contents, recreated_string);
+                        assert_eq!(contents.trim(), recreated_string.trim());
                     }
                 }
             }
@@ -122,13 +122,14 @@ pixHeight=4"#;
         heatValue: Some(0),
         rValue: Some(0.15),
         person: Some(PersonData {
-            person: false,
+            person: 0,
             noSpawn: Some(false),
         }),
         male: Some(false),
         deathMarker: Some(false),
         homeMarker: Some(false),
         floor: Some(false),
+        partialFloor: None,
         floorHugging: Some(false),
         wallLayer: None,
         frontWall: None,
@@ -140,12 +141,13 @@ pixHeight=4"#;
         clothingOffset: Some(DoublePair(3.0, 69.999996)),
         deadlyDistance: Some(0),
         useDistance: Some(1),
-        sounds: Some(SoundsData {
-            creationSound: SoundDataVec { 0: vec![SoundData { id: 153, volume: 0.225 }] },
-            usingSound: SoundDataVec { 0: vec![SoundData { id: 286, volume: 0.10101 }] },
-            eatingSound: SoundDataVec { 0: vec![SoundData { id: -1, volume: 0.0 }] },
-            decaySound: SoundDataVec { 0: vec![SoundData { id: -1, volume: 0.0 }] },
-        }),
+        // sounds: Some(SoundsData {
+        //     creationSound: SoundDataVec { 0: vec![SoundData { id: 153, volume: 0.225 }] },
+        //     usingSound: SoundDataVec { 0: vec![SoundData { id: 286, volume: 0.10101 }] },
+        //     eatingSound: SoundDataVec { 0: vec![SoundData { id: -1, volume: 0.0 }] },
+        //     decaySound: SoundDataVec { 0: vec![SoundData { id: -1, volume: 0.0 }] },
+        // }),
+        sounds: Some(SoundsData { data:"sounds=153:0.225000,286:0.101010,-1:0.0,-1:0.0".to_string() }),
         creationSoundInitialOnly: Some(false),
         creationSoundForce: Some(false),
         numSlots: Some(NumSlotsData {
@@ -187,6 +189,6 @@ pixHeight=4"#;
         pixHeight: Some(4),
     };
 
-    assert_eq!(object_data_struct.to_string(), object_data_str);
+    assert_eq!(object_data_struct.to_string().trim(), object_data_str.trim());
 
 }

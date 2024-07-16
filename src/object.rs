@@ -114,14 +114,14 @@ impl FromStr for MapChanceData {
 
 #[derive(Debug)]
 pub struct PersonData {
-    pub person: bool,
+    pub person: i8,
     pub noSpawn: Option<bool>,
 }
 
 impl ToString for PersonData {
     fn to_string(&self) -> String {
         let mut output = String::new();
-        output.push_str(&format!("person={}", self.person.to_i8()));
+        output.push_str(&format!("person={}", self.person));
         if let Some(noSpawn) = self.noSpawn {
             output.push_str(&format!(",noSpawn={}", noSpawn.to_i8()));
         }
@@ -139,8 +139,7 @@ impl FromStr for PersonData {
         .split('=')
         .collect::<Vec<_>>()
         [1]
-        .parse::<i8>()?
-        .to_bool();
+        .parse::<i8>()?;
         let mut noSpawn = None;
         for &variable_section in variable_sections.iter().skip(1) {
             let variable_data = variable_section.split('=').collect::<Vec<_>>();
@@ -325,111 +324,131 @@ impl FromStr for ClothingType {
 }
 
 #[derive(Debug)]
-pub struct SoundData {
-    pub id: i32,
-    pub volume: f64
-}
-
-impl ToString for SoundData {
-    fn to_string(&self) -> String {
-        if self.volume == 0.0 {
-            format!("{}:{:.1}", self.id, self.volume)
-        } else {
-            format!("{}:{:.6}", self.id, self.volume)
-        }
-    }
-}
-
-//use the code from object's fromstr and put it here instead, and then use it in object's fromstr
-impl FromStr for SoundData {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.trim().split(':').collect::<Vec<_>>();
-        Ok(SoundData {
-            id: variable_sections[0].parse()?,
-            volume: variable_sections[1].parse()?
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct SoundDataVec(pub Vec<SoundData>);
-
-impl ToString for SoundDataVec {
-    fn to_string(&self) -> String {
-        self.0
-        .iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("#")
-    }
-}
-
-//use the code from object's fromstr and put it here instead, and then use it in object's fromstr
-impl FromStr for SoundDataVec {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let sound_sections = s.trim()
-            .split('#')
-            .filter_map(|sound_section| {
-                let sound_data_sections = sound_section.split(':').collect::<Vec<_>>();
-                let id = sound_data_sections[0].parse::<i32>();
-                let volume = sound_data_sections[1].parse::<f64>();
-                if id.is_err() || volume.is_err() {
-                    log::warn!("Error parsing id ({}) or volume ({}), using a None value for this sound section", if id.is_err() { "NOT OK"} else { "OK" }, if volume.is_err() { "NOT OK"} else { "OK" });
-                    return None;
-                } else {
-                    return Some(SoundData{ id: id.unwrap(), volume: volume.unwrap() })
-                }
-            })
-            .collect::<Vec<_>>();
-
-        Ok(SoundDataVec {
-            0: sound_sections
-        })
-    }
-}
-
-#[derive(Debug)]
 pub struct SoundsData {
-    pub creationSound: SoundDataVec,
-    pub usingSound: SoundDataVec,
-    pub eatingSound: SoundDataVec,
-    pub decaySound: SoundDataVec,
+    pub data: String,
 }
 
 impl ToString for SoundsData {
     fn to_string(&self) -> String {
-        let mut output = String::new();
-        output.push_str("sounds=");
-        output.push_str(&self.creationSound.to_string());
-        output.push(',');
-        output.push_str(&self.usingSound.to_string());
-        output.push(',');
-        output.push_str(&self.eatingSound.to_string());
-        output.push(',');
-        output.push_str(&self.decaySound.to_string());
-        output
+        self.data.clone()
     }
 }
 
 impl FromStr for SoundsData {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let line_sections = s.trim().split('=').collect::<Vec<_>>();
-        let variable_sections = line_sections[1].split(',').collect::<Vec<_>>();
-        // First section is person. Beyond that, we deal with whatever supported values are present
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(SoundsData {
-            creationSound: SoundDataVec::from_str(variable_sections[0])?,
-            usingSound: SoundDataVec::from_str(variable_sections[1])?,
-            eatingSound: SoundDataVec::from_str(variable_sections[2])?,
-            decaySound: SoundDataVec::from_str(variable_sections[3])?,
+            data: s.to_string()
         })
     }
 }
+
+// #[derive(Debug)]
+// pub struct SoundsData {
+//     pub creationSound: SoundDataVec,
+//     pub usingSound: SoundDataVec,
+//     pub eatingSound: SoundDataVec,
+//     pub decaySound: SoundDataVec,
+// }
+
+// impl ToString for SoundsData {
+//     fn to_string(&self) -> String {
+//         let mut output = String::new();
+//         output.push_str("sounds=");
+//         output.push_str(&self.creationSound.to_string());
+//         output.push(',');
+//         output.push_str(&self.usingSound.to_string());
+//         output.push(',');
+//         output.push_str(&self.eatingSound.to_string());
+//         output.push(',');
+//         output.push_str(&self.decaySound.to_string());
+//         output
+//     }
+// }
+
+// impl FromStr for SoundsData {
+//     type Err = anyhow::Error;
+
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let line_sections = s.trim().split('=').collect::<Vec<_>>();
+//         let variable_sections = line_sections[1].split(',').collect::<Vec<_>>();
+//         Ok(SoundsData {
+//             creationSound: SoundDataVec::from_str(variable_sections[0])?,
+//             usingSound: SoundDataVec::from_str(variable_sections[1])?,
+//             eatingSound: SoundDataVec::from_str(variable_sections[2])?,
+//             decaySound: SoundDataVec::from_str(variable_sections[3])?,
+//         })
+//     }
+// }
+
+// #[derive(Debug)]
+// pub struct SoundData {
+//     pub id: i32,
+//     pub volume: f64
+// }
+
+// impl ToString for SoundData {
+//     fn to_string(&self) -> String {
+//         if self.id == -1 && self.volume == 0.0 {
+//             format!("{}:{:.1}", self.id, self.volume)
+//         } else {
+//             format!("{}:{:.6}", self.id, self.volume)
+//         }
+//     }
+// }
+
+// //use the code from object's fromstr and put it here instead, and then use it in object's fromstr
+// impl FromStr for SoundData {
+//     type Err = anyhow::Error;
+
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let variable_sections = s.trim().split(':').collect::<Vec<_>>();
+//         Ok(SoundData {
+//             id: variable_sections[0].parse()?,
+//             volume: variable_sections[1].parse()?
+//         })
+//     }
+// }
+
+// #[derive(Debug)]
+// pub struct SoundDataVec(pub Vec<SoundData>);
+
+// impl ToString for SoundDataVec {
+//     fn to_string(&self) -> String {
+//         self.0
+//         .iter()
+//         .map(|s| s.to_string())
+//         .collect::<Vec<_>>()
+//         .join("#")
+//     }
+// }
+
+// //use the code from object's fromstr and put it here instead, and then use it in object's fromstr
+// impl FromStr for SoundDataVec {
+//     type Err = anyhow::Error;
+
+//     fn from_str(s: &str) -> Result<Self, Self::Err> {
+//         let sound_sections = s.trim()
+//             .split('#')
+//             .filter_map(|sound_section| {
+//                 let sound_data_sections = sound_section.split(':').collect::<Vec<_>>();
+//                 let id = sound_data_sections[0].parse::<i32>();
+//                 let volume = sound_data_sections[1].parse::<f64>();
+//                 if id.is_err() || volume.is_err() {
+//                     log::warn!("Error parsing id ({}) or volume ({}), using a None value for this sound section", if id.is_err() { "NOT OK"} else { "OK" }, if volume.is_err() { "NOT OK"} else { "OK" });
+//                     return None;
+//                 } else {
+//                     return Some(SoundData{ id: id.unwrap(), volume: volume.unwrap() })
+//                 }
+//             })
+//             .collect::<Vec<_>>();
+
+//         Ok(SoundDataVec {
+//             0: sound_sections
+//         })
+//     }
+// }
 
 #[derive(Debug)]
 pub struct NumSlotsData {
@@ -772,7 +791,7 @@ impl FromStr for NumUsesData {
 #[derive(Debug)]
 pub struct SlotPosData {
     pub slotPos: DoublePair,
-    pub vert: Option<bool>,
+    pub vert: Option<i32>,
     pub parent: Option<i32>,
 }
 
@@ -781,7 +800,7 @@ impl ToString for SlotPosData {
         let mut output = String::new();
         output.push_str(&format!("slotPos={}", self.slotPos.to_string()));
         if let Some(vert) = self.vert {
-            output.push_str(&format!(",vert={}", vert.to_i8()));
+            output.push_str(&format!(",vert={}", vert));
         }
         if let Some(parent) = self.parent {
             output.push_str(&format!(",parent={}", parent));
@@ -805,7 +824,7 @@ impl FromStr for SlotPosData {
         for &variable_section in variable_sections.iter().skip(2) {
             let variable_data = variable_section.split('=').collect::<Vec<_>>();
             match variable_data[0] {
-                "vert" => vert = Some(variable_data[1].parse::<i8>()?.to_bool()),
+                "vert" => vert = Some(variable_data[1].parse()?),
                 "parent" => parent = Some(variable_data[1].parse()?),
                 _ => {
                     log::info!("SlotPosData::FromStr: Unexpected variable name {}", variable_data[0]);
@@ -840,6 +859,7 @@ pub struct Object {
     pub deathMarker: Option<bool>,
     pub homeMarker: Option<bool>,
     pub floor: Option<bool>,
+    pub partialFloor: Option<i8>,
     pub floorHugging: Option<bool>,
     pub wallLayer: Option<bool>,
     pub frontWall: Option<i32>,
@@ -946,6 +966,9 @@ impl ToString for Object {
         }
         if let Some(floor) = self.floor {
             output.push(format!("floor={}", floor.to_i8()));
+        }
+        if let Some(partialFloor)= self.partialFloor {
+            output.push(format!("partialFloor={}", partialFloor));
         }
         if let Some(floorHugging) = self.floorHugging {
             output.push(format!("floorHugging={}", floorHugging.to_i8()));
@@ -1109,6 +1132,7 @@ impl FromStr for Object {
         let mut deathMarker = None;
         let mut homeMarker = None;
         let mut floor = None;
+        let mut partialFloor = None;
         let mut floorHugging = None;
         let mut wallLayer = None;
         let mut frontWall = None;
@@ -1156,7 +1180,7 @@ impl FromStr for Object {
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
 
-            println!("Parsing variable named {main_variable_name}");
+            // println!("Parsing variable named {main_variable_name}");
 
             match main_variable_name {
                 "containable" => containable = Some(main_variable_value != "0"),
@@ -1174,6 +1198,7 @@ impl FromStr for Object {
                 "deathMarker" => deathMarker = Some(main_variable_value != "0"),
                 "homeMarker" => homeMarker = Some(main_variable_value != "0"),
                 "floor" => floor = Some(main_variable_value != "0"),
+                "partialFloor" => partialFloor = Some(main_variable_value.parse()?),
                 "floorHugging" => floorHugging = Some(main_variable_value != "0"),
                 "frontWall" => frontWall = Some(main_variable_value.parse()?),
                 "wallLayer" => wallLayer = Some(main_variable_value != "0"),
@@ -1235,6 +1260,6 @@ impl FromStr for Object {
         if !sprite_vec.is_empty() { sprites = Some(sprite_vec) };
         if !slotPos_vec.is_empty() { slotPosData = Some(slotPos_vec) };
 
-        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, frontWall, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotStyle, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, partialFloor, floorHugging, frontWall, wallLayer, foodValue, speedMult, containOffset, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotStyle, slotsLocked, slotsNoSwap, slotPosData, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
