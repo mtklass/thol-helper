@@ -732,7 +732,7 @@ pub struct Object {
     pub permanent: Option<PermanentData>,
     pub noFlip: Option<bool>,
     pub sideAccess: Option<bool>,
-    pub heldInHand: Option<bool>,
+    pub heldInHand: Option<i8>,
     pub blocksWalking: Option<BlocksWalkingData>,
     pub mapChance: Option<MapChanceData>,
     pub heatValue: Option<i32>,
@@ -816,7 +816,7 @@ impl ToString for Object {
             output.push(format!("sideAccess={}", sideAccess.to_i8()));
         }
         if let Some(heldInHand) = self.heldInHand {
-            output.push(format!("heldInHand={}", heldInHand.to_i8()));
+            output.push(format!("heldInHand={}", heldInHand));
         }
         if let Some(blocksWalking) = &self.blocksWalking {
             output.push(blocksWalking.to_string());
@@ -1042,7 +1042,7 @@ impl FromStr for Object {
                 "permanent" => permanent = Some(line.parse()?),
                 "noFlip" => noFlip = Some(main_variable_value != "0"),
                 "sideAccess" => sideAccess = Some(main_variable_value != "0"),
-                "heldInHand" => heldInHand = Some(main_variable_value != "0"),
+                "heldInHand" => heldInHand = Some(main_variable_value.parse()?),
                 "blocksWalking" => blocksWalking = Some(line.parse()?),
                 "heatValue" => heatValue = Some(main_variable_value.parse()?),
                 "rValue" => rValue = Some(main_variable_value.parse()?),

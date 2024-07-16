@@ -108,7 +108,7 @@ pixHeight=4"#;
         }),
         noFlip: Some(false),
         sideAccess: Some(false),
-        heldInHand: Some(false),
+        heldInHand: Some(0),
         blocksWalking: Some(BlocksWalkingData {
             blocksWalking: false,
             leftBlockingRadius: Some(0),
