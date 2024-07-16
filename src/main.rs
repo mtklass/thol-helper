@@ -34,7 +34,7 @@ fn main() -> Result<()> {
 
                         let object = Object::from_str(&contents)?;
                         let recreated_string = object.to_string();
-                        // assert_eq!(contents, recreated_string);
+                        assert_eq!(contents, recreated_string);
                     }
                 }
             }
