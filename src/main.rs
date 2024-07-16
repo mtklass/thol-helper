@@ -151,6 +151,7 @@ pixHeight=4"#;
         }),
         slotSize: Some(1.0),
         slotsLocked: Some(false),
+        slotsNoSwap: None,
         numSprites: Some(1),
         sprites: Some(vec![
             SpriteData {
@@ -162,7 +163,9 @@ pixHeight=4"#;
                 ageRange: DoublePair(-1.0, -1.0),
                 parent: -1,
                 invisHolding: InvisHoldingData { invisHolding: false, invisWorn: 0, behindSlots: false },
-                invisCont: Some(false)
+                invisCont: Some(false),
+                spritesDrawnBehind: None,
+                spritesAdditiveBlend: None,
             }
         ]),
         headIndex: Some(vec![-1]),

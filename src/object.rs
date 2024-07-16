@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use anyhow::{anyhow, Result};
 use std::str::FromStr;
 
@@ -226,7 +227,7 @@ impl FromStr for ContainSizeData {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let variable_sections = s.trim().split(',').collect::<Vec<_>>();
-        // First section is containSize, second optional section is vertSlotRotlet containSize_val = main_variable[1].parse::<f32>()?;
+        // First section is containSize, second optional section is vertSlotRotlet containSize_val = main_variable_value.parse::<f32>()?;
         let containSize = variable_sections[0]
             .split('=')
             .collect::<Vec<_>>()
@@ -366,23 +367,17 @@ impl FromStr for SoundDataVec {
                 let id = sound_data_sections[0].parse::<i32>();
                 let volume = sound_data_sections[1].parse::<f64>();
                 if id.is_err() || volume.is_err() {
+                    log::warn!("Error parsing id ({}) or volume ({}), using a None value for this sound section", if id.is_err() { "NOT OK"} else { "OK" }, if volume.is_err() { "NOT OK"} else { "OK" });
                     return None;
                 } else {
                     return Some(SoundData{ id: id.unwrap(), volume: volume.unwrap() })
                 }
             })
             .collect::<Vec<_>>();
-        // sound_sections are #:#
 
         Ok(SoundDataVec {
-            0: vec![]
+            0: sound_sections
         })
-
-        // let variable_sections = s.split(':').collect::<Vec<_>>();
-        // Ok(SoundData {
-        //     id: variable_sections[0].parse()?,
-        //     volume: variable_sections[1].parse()?
-        // })
     }
 }
 
@@ -512,6 +507,8 @@ pub struct SpriteData {
     pub parent: i32,
     pub invisHolding: InvisHoldingData,
     pub invisCont: Option<bool>,
+    pub spritesDrawnBehind: Option<Vec<bool>>,
+    pub spritesAdditiveBlend: Option<Vec<bool>>,
 }
 
 impl ToString for SpriteData {
@@ -528,6 +525,12 @@ parent={}
         if let Some(invisCont) = self.invisCont {
             output.push_str(&format!("\ninvisCont={}", invisCont.to_i8()));
         }
+        if let Some(spritesDrawnBehind) = &self.spritesDrawnBehind {
+            output.push_str(&format!("\nspritesDrawnBehind={}", spritesDrawnBehind.iter().map(|s| s.to_i8().to_string()).collect::<Vec<_>>().join(",")));
+        }
+        if let Some(spritesAdditiveBlend) = &self.spritesAdditiveBlend {
+            output.push_str(&format!("\nspritesAdditiveBlend={}", spritesAdditiveBlend.iter().map(|s| s.to_i8().to_string()).collect::<Vec<_>>().join(",")));
+        }
         output
     }
 }
@@ -543,6 +546,8 @@ impl SpriteData {
             "parent" => true,
             "invisHolding" => true,
             "invisCont" => true,
+            "spritesDrawnBehind" => true,
+            "spritesAdditiveBlend" => true,
             _ => false,
         }
     }
@@ -567,17 +572,34 @@ impl FromStr for SpriteData {
         let mut parent = None;
         let mut invisHolding = None;
         let mut invisCont = None;
+        let mut spritesDrawnBehind = None;
+        let mut spritesAdditiveBlend = None;
         for &variable_section in variable_sections.iter().skip(1) {
             let variable_data = variable_section.split('=').collect::<Vec<_>>();
             match variable_data[0] {
-                "pos" => pos = Some(variable_data[1].parse::<DoublePair>()?),
-                "rot" => rot = Some(variable_data[1].parse::<f64>()?),
-                "hFlip" => hFlip = Some(variable_data[1].parse::<i8>()?.to_bool()),
-                "color" => color = Some(variable_data[1].parse::<ColorData>()?),
-                "ageRange" => ageRange = Some(variable_data[1].parse::<DoublePair>()?),
-                "parent" => parent = Some(variable_data[1].parse::<i32>()?),
-                "invisHolding" => invisHolding = Some(variable_data[1].parse::<InvisHoldingData>()?),
-                "invisCont" => invisCont = Some(variable_data[1].parse::<i8>()?.to_bool()),
+                "pos" => pos = Some(variable_data[1].parse::<DoublePair>().expect("Error parsing pos value")),
+                "rot" => rot = Some(variable_data[1].parse::<f64>().expect("Error parsing rot value")),
+                "hFlip" => hFlip = Some(variable_data[1].parse::<i8>().expect("Error parsing hFlip value").to_bool()),
+                "color" => color = Some(variable_section.parse::<ColorData>().expect("Error parsing color value")),
+                "ageRange" => ageRange = Some(variable_data[1].parse::<DoublePair>().expect("Error parsing ageRange value")),
+                "parent" => parent = Some(variable_data[1].parse::<i32>().expect("Error parsing parent value")),
+                "invisHolding" => invisHolding = Some(variable_section.parse::<InvisHoldingData>().expect("Error parsing invisHolding value")),
+                "invisCont" => invisCont = Some(variable_data[1].parse::<i8>().expect("Error parsing invisCont value").to_bool()),
+                "spritesDrawnBehind" => spritesDrawnBehind = Some(variable_data[1]
+                    .split(",")
+                    .filter_map(|v| v.parse::<i8>()
+                        .and_then(|v| Ok(v.to_bool()))
+                        .ok()
+                    )
+                    .collect::<Vec<_>>()
+                ),"spritesAdditiveBlend" => spritesAdditiveBlend = Some(variable_data[1]
+                    .split(",")
+                    .filter_map(|v| v.parse::<i8>()
+                        .and_then(|v| Ok(v.to_bool()))
+                        .ok()
+                    )
+                    .collect::<Vec<_>>()
+                ),
                 _ => {
                     log::info!("SpriteData::FromStr: Unexpected variable name {}", variable_data[0]);
                 }
@@ -600,6 +622,8 @@ impl FromStr for SpriteData {
             parent,
             invisHolding,
             invisCont,
+            spritesDrawnBehind,
+            spritesAdditiveBlend,
         })
     }
 }
@@ -675,34 +699,6 @@ pub struct NumUsesData {
     pub useChance: Option<f32>,
 }
 
-impl FromStr for NumUsesData {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
-        // First section is numUses. Beyond that, we deal with whatever supported values are present
-        let numUses = variable_sections[0]
-        .split('=')
-        .collect::<Vec<_>>()
-        [1]
-        .parse()?;
-        let mut useChance = None;
-        for &variable_section in variable_sections.iter().skip(1) {
-            let variable_data = variable_section.split('=').collect::<Vec<_>>();
-            match variable_data[0] {
-                "useChance" => useChance = Some(variable_data[1].parse()?),
-                _ => {
-                    log::info!("NumUsesData::FromStr: Unexpected variable name {}", variable_data[0]);
-                }
-            }
-        }
-        Ok(NumUsesData {
-            numUses,
-            useChance,
-        })
-    }
-}
-
 impl ToString for NumUsesData {
     fn to_string(&self) -> String {
         let mut output = String::new();
@@ -711,6 +707,27 @@ impl ToString for NumUsesData {
             output.push_str(&format!(",{:.6}", useChance));
         }
         output
+    }
+}
+
+impl FromStr for NumUsesData {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        println!("parsing {s}");
+        let variable_sections = s.trim().split(',').collect::<Vec<_>>();
+        // First section is numUses. Beyond that, we deal with whatever supported values are present
+        println!("variable_sections: {:?}", variable_sections);
+        let numUses = variable_sections[0]
+        .split('=')
+        .collect::<Vec<_>>()
+        [1]
+        .parse()?;
+        let useChance = variable_sections[1].parse().ok();
+        Ok(NumUsesData {
+            numUses,
+            useChance,
+        })
     }
 }
 
@@ -747,6 +764,7 @@ pub struct Object {
     pub numSlots: Option<NumSlotsData>,
     pub slotSize: Option<f32>,
     pub slotsLocked: Option<bool>,
+    pub slotsNoSwap: Option<bool>,
     pub numSprites: Option<i32>,
     pub sprites: Option<Vec<SpriteData>>,
     pub headIndex: Option<Vec<i32>>, // This is for human characters, don't worry about it for now
@@ -882,6 +900,9 @@ impl ToString for Object {
         if let Some(slotsLocked) = self.slotsLocked {
             output.push(format!("slotsLocked={}", slotsLocked.to_i8()));
         }
+        if let Some(slotsNoSwap) = self.slotsNoSwap {
+            output.push(format!("slotsNoSwap={}", slotsNoSwap.to_i8()));
+        }
         if let Some(numSprites) = self.numSprites {
             output.push(format!("numSprites={}", numSprites));
         }
@@ -990,6 +1011,7 @@ impl FromStr for Object {
         let mut numSlots = None;
         let mut slotSize = None;
         let mut slotsLocked = None;
+        let mut slotsNoSwap = None;
         let mut numSprites = None;
         let mut sprites = None;
         let mut headIndex = None;
@@ -1007,6 +1029,8 @@ impl FromStr for Object {
         lines_iter.next();
         lines_iter.next();
 
+        let mut sprite_vec = Vec::new();
+
         while let Some(&line) = lines_iter.next() {
             let line = line.trim();
             if line.is_empty() {continue;}
@@ -1014,18 +1038,12 @@ impl FromStr for Object {
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
 
-            // let variable_sections = line_sections[1].split(',').collect::<Vec<_>>();
-            // let mut sprite_vec = Vec::new();
-
-            let variable_sections = line.split(',').collect::<Vec<_>>();
-            let main_variable = variable_sections[0].split('=').collect::<Vec<_>>();
-            let mut sprite_vec = Vec::new();
             match main_variable_name {
                 "containable" => containable = Some(main_variable_value != "0"),
                 "containSize" => containSize = Some(line.parse()?),
                 "mapChance" => mapChance = Some(line.parse()?),
                 "permanent" => permanent = Some(line.parse()?),
-                "noFlip" => noFlip = Some(main_variable[1] != "0"),
+                "noFlip" => noFlip = Some(main_variable_value != "0"),
                 "sideAccess" => sideAccess = Some(main_variable_value != "0"),
                 "heldInHand" => heldInHand = Some(main_variable_value != "0"),
                 "blocksWalking" => blocksWalking = Some(line.parse()?),
@@ -1050,8 +1068,9 @@ impl FromStr for Object {
                 "numSlots" => numSlots = Some(line.parse()?),
                 "slotSize" => slotSize = Some(main_variable_value.parse()?),
                 "slotsLocked" => slotsLocked = Some(main_variable_value != "0"),
+                "slotsNoSwap" => slotsNoSwap = Some(main_variable_value.parse()?),
                 "numSprites" => numSprites = Some(main_variable_value.parse()?),
-                "spriteId" => {
+                "spriteID" => {
                     // We will assume numSprites has come before any sprites
                     // But we will make sure numSprites is something and non-zero later
                     // We must determine what to pass into SpriteData::from_str()
@@ -1059,8 +1078,8 @@ impl FromStr for Object {
                     // If we are not on the last sprite, there will be a future "spriteID" line
                     // If we are on the last sprite, we must look for a non-sprite variable.
                     // So, if we see either of those things, we have hit the end of our current sprite
-                    
-                    let mut lines_for_sprite = Vec::new();
+                    let variable_sections = line.split(',').collect::<Vec<_>>();
+                    let mut lines_for_sprite = vec![variable_sections[0]];
                     while let Some(&sprite_line) = lines_iter.peek() {
                         let sprite_variable = sprite_line.split('=').collect::<Vec<_>>()[0];
                         if sprite_variable == "spriteID" {
@@ -1084,17 +1103,17 @@ impl FromStr for Object {
                 "useAppearIndex" => useAppearIndex = Some(main_variable_value.split(",").filter_map(|v| v.parse().ok()).collect::<Vec<_>>()),
                 "pixHeight" => pixHeight = Some(main_variable_value.parse()?),
                 _ => {
-                    log::warn!("Unknown variable name {}", main_variable[0]);
+                    log::warn!("Unknown variable name {}", main_variable_name);
                 }
             }
-            // We will make sure numSprites is something and non-zero
-            if numSprites.is_none() || numSprites.unwrap() == 0 {
-                sprites = None;
-            } else {
-                sprites = Some(sprite_vec);
-            }
+        }
+        // We will make sure numSprites is something and non-zero
+        if numSprites.is_none() || numSprites.unwrap() == 0 {
+            sprites = None;
+        } else {
+            sprites = Some(sprite_vec);
         }
 
-        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, foodValue, speedMult, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
+        Ok(Object { id, name, containable, containSize, mapChance, permanent, noFlip, sideAccess, heldInHand, blocksWalking, heatValue, rValue, person, male, deathMarker, homeMarker, floor, floorHugging, foodValue, speedMult, heldOffset, clothing, clothingOffset, deadlyDistance, useDistance, sounds, creationSoundInitialOnly, creationSoundForce, numSlots, slotSize, slotsLocked, slotsNoSwap, numSprites, sprites, headIndex, bodyIndex, backFootIndex, frontFootIndex, numUses, useVanishIndex, useAppearIndex, pixHeight })
     }
 }
