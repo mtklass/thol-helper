@@ -76,9 +76,34 @@ fn main() -> Result<()> {
             }
         }
     }
-    // Now we have a list of all game objects. We can filter them how we want to make some more useful subsets.
+    println!("Parsed {} game object files", game_objects.len());
+
+    // Filter out all known items we don't want.
+    // TODO: How do we figure out which things are "UNCRAFTABLE"?
+    // Answer to the above: We probably have to do the transitions parsing first
+    let game_objects = game_objects
+        .iter()
+        .filter(|&obj| {
+            !obj.name.contains("outdated")
+            && !obj.name.contains("#")
+        }).collect::<Vec<_>>();
+    println!("Have {} game object files after filtering default unwanted entries", game_objects.len());
+
+    // Now we have a list of all "good" game objects. We can filter them how we want to make some more useful subsets.
     // We can also, in the future, add transition file parsing, and then connect the two.
     // This can allow for really powerful queries regarding recipes, but could get complicated quickly.
-    println!("Parsed {} game object files", game_objects.len());
+
+    let mut game_objects = game_objects.iter().filter(|&obj| {
+        !obj.numSlots.is_none() && obj.numSlots.as_ref().unwrap().numSlots > 0
+    }).collect::<Vec<_>>();
+    println!("Query matched {} game files", game_objects.len());
+
+    game_objects.sort_by_key(|k| k.id);
+
+    game_objects.iter().for_each(|obj| {
+        println!("{:6} [{:.1}]: {}", obj.id, obj.containSize.as_ref().map(|s| s.containSize).unwrap_or(-1.0), obj.name);
+    });
+
+    
     Ok(())
 }
