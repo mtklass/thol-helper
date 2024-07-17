@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
+clap = { version = "4.5.9", features = ["derive"] }
 diff = "0.1.13"
 log = "0.4.22"
 pretty_assertions = "1.4.0"

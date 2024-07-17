@@ -2,7 +2,7 @@
 use anyhow::{anyhow, Result};
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BlocksWalkingData {
     pub blocksWalking: bool,
     pub leftBlockingRadius: Option<i32>,
@@ -62,7 +62,7 @@ impl FromStr for BlocksWalkingData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MapChanceData {
     // line looks something like this: mapChance=0.000000#biomes_0,1,2,3
     pub mapChance: f32,
@@ -112,7 +112,7 @@ impl FromStr for MapChanceData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PersonData {
     pub person: i8,
     pub noSpawn: Option<bool>,
@@ -157,7 +157,7 @@ impl FromStr for PersonData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PermanentData {
     pub permanent: bool,
     pub minPickupAge: Option<i32>,
@@ -203,7 +203,7 @@ impl FromStr for PermanentData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ContainSizeData {
     pub containSize: f32,
     pub vertSlotRot: Option<f32>,
@@ -257,7 +257,7 @@ impl FromStr for ContainSizeData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ClothingData {
     pub clothing: ClothingType,
 }
@@ -278,7 +278,7 @@ impl FromStr for ClothingData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ClothingType {
     Bottom,
     Head,
@@ -323,7 +323,7 @@ impl FromStr for ClothingType {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SoundsData {
     pub data: String,
 }
@@ -344,7 +344,7 @@ impl FromStr for SoundsData {
     }
 }
 
-// #[derive(Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq)]
 // pub struct SoundsData {
 //     pub creationSound: SoundDataVec,
 //     pub usingSound: SoundDataVec,
@@ -382,7 +382,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-// #[derive(Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq)]
 // pub struct SoundData {
 //     pub id: i32,
 //     pub volume: f64
@@ -411,7 +411,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-// #[derive(Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq)]
 // pub struct SoundDataVec(pub Vec<SoundData>);
 
 // impl ToString for SoundDataVec {
@@ -450,7 +450,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NumSlotsData {
     pub numSlots: i32,
     pub timeStretch: Option<f32>,
@@ -495,7 +495,7 @@ impl FromStr for NumSlotsData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ColorData {
     pub red: f32,
     pub green: f32,
@@ -526,7 +526,7 @@ impl FromStr for ColorData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SpriteData {
     pub spriteID: i32,
     pub pos: DoublePair,
@@ -665,7 +665,7 @@ impl FromStr for SpriteData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DoublePair(pub f64, pub f64);
 
 impl ToString for DoublePair {
@@ -683,7 +683,7 @@ impl FromStr for DoublePair {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct I32Pair(pub i32, pub i32);
 
 impl ToString for I32Pair {
@@ -701,7 +701,7 @@ impl FromStr for I32Pair {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InvisHoldingData {
     pub invisHolding: bool,
     pub invisWorn: i32,
@@ -748,7 +748,7 @@ impl FromStr for InvisHoldingData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NumUsesData {
     pub numUses: i32,
     pub useChance: Option<f32>,
@@ -788,7 +788,7 @@ impl FromStr for NumUsesData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SlotPosData {
     pub slotPos: DoublePair,
     pub vert: Option<i32>,
@@ -840,7 +840,7 @@ impl FromStr for SlotPosData {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Object {
     pub id: i32,
     pub name: String,
