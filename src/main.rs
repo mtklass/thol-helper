@@ -1,6 +1,7 @@
 mod object;
 
-use std::collections::HashSet;
+use std::ops::Div;
+use std::{collections::HashSet, ops::Mul};
 use std::fs::File;
 use std::io::BufReader;
 
@@ -35,26 +36,35 @@ fn main() -> Result<()> {
         match entry {
             Ok(path) => {
                 let file = File::open(&path).expect("Unable to open file");
-                println!("Reading {}", path.to_str().unwrap());
+                // println!("Reading {}", path.to_str().unwrap());
                 let reader = BufReader::new(file);
                 let json: Value = serde_json::from_reader(reader).expect("Unable to parse JSON");
 
-                let json_string = serde_json::to_string_pretty(&json)?;
+                let json_string = serde_json::to_string(&json)?;
 
-                let object_data: Object = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", json_string));
+                let object_data: Object = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
                 objects.push(object_data);
             }
             Err(e) => println!("{:?}", e),
         }
     }
 
-    objects.iter()
-        .filter(|obj| obj.craftable.unwrap_or(false)
-            && obj.clothing == Some(ClothingType::Top)
-        )
-        .for_each(|obj| {
-            
-        });
+    let mut output_string_lines = Vec::new();
 
+    let mut objects = objects.iter()
+        .filter(|obj| 
+            obj.craftable.unwrap_or(false)
+            && obj.clothing == Some(ClothingType::Shoe)
+            && !&obj.name.clone().unwrap_or_default().contains("removed")
+        )
+        .collect::<Vec<_>>();
+    objects.sort_by_key(|k| k.name.clone());
+
+    objects.iter().for_each(|obj| {
+            output_string_lines.push("|-".to_string());
+            output_string_lines.push(format!("|{{{{Card|{}}}}}", obj.name.clone().unwrap_or("ERROR: No name!".to_string())));
+            output_string_lines.push(format!("|{:1.}%", obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0)));
+        });
+    std::fs::write("output-Shoe.txt", output_string_lines.join("\n"))?;
     Ok(())
 }
