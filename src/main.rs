@@ -15,14 +15,18 @@ use serde_json::Value;
 #[derive(Parser, Default)]
 #[command(author, about)]
 pub struct Args {
-    #[arg(long)]
-    clothing: Option<String>,
     #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
     one_life_data_directory: String,
     #[arg(short = 'o', long, default_value = "output.txt")]
     output_file: String,
     #[arg(short = 't', long, default_value = "../../TwoHoursOneLife/twotech")]
     two_tech_data_directory: String,
+
+// Filtering options
+    #[arg(long)]
+    clothing: Option<String>,
+    #[arg(long, default_value = "0")]
+    min_pickup_age: i32,
 }
 
 fn main() -> Result<()> {
@@ -75,6 +79,7 @@ fn main() -> Result<()> {
                     && clothing_to_match.contains(obj.clothing.as_ref().unwrap())
                 )
             )
+            && obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
             // && obj.clothing.as_ref().unwrap_or(&ClothingType::None) != &ClothingType::None
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
