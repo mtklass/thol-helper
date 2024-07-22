@@ -28,6 +28,8 @@ pub struct Args {
     clothing: Option<String>,
     #[arg(long, default_value = "0")]
     min_pickup_age: i32,
+    #[arg(long, default_value = "0")]
+    min_slot_size: f32,
     #[arg(long, help = "examples: 1, 1000, 0..1, ..2, 4..")]
     num_slots: Option<I32Range>,
 }
@@ -89,6 +91,7 @@ fn main() -> Result<()> {
             )
             && obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
             && num_slots_filter.contains(&obj.numSlots.unwrap_or(0))
+            && obj.slotSize.unwrap_or_default() > args.min_slot_size
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
         .collect::<Vec<_>>();
