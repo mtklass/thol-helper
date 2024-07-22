@@ -4,6 +4,7 @@ use std::ops::Div;
 use std::ops::Mul;
 use std::fs::{self, File};
 use std::io::BufReader;
+use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -14,6 +15,8 @@ use serde_json::Value;
 #[derive(Parser, Default)]
 #[command(author, about)]
 pub struct Args {
+    #[arg(long)]
+    clothing: Option<String>,
     #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
     one_life_data_directory: String,
     #[arg(short = 'o', long, default_value = "output.txt")]
@@ -24,6 +27,7 @@ pub struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    let clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
     if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
         println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -o option.", args.one_life_data_directory);
         return Err(anyhow!(onelife_dir_err));
@@ -63,7 +67,11 @@ fn main() -> Result<()> {
         .filter(|obj| {
             obj.craftable.unwrap_or(false)
             // Specific type of clothing
-            && obj.clothing == Some(ClothingType::Top)
+            && (clothing_to_match.is_empty() ||
+                (obj.clothing.is_some()
+                    && clothing_to_match.contains(obj.clothing.as_ref().unwrap())
+                )
+            )
             // && obj.clothing.as_ref().unwrap_or(&ClothingType::None) != &ClothingType::None
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
