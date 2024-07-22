@@ -27,13 +27,16 @@ pub struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
+    let mut clothing_to_match = Vec::new();
+    if args.clothing.is_some() {
+        clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
+    }
     if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
-        println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -o option.", args.one_life_data_directory);
+        println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
         return Err(anyhow!(onelife_dir_err));
     }
     if let Err(twotech_dir_err) = fs::read_dir(&args.two_tech_data_directory) {
-        println!("TwoTech directory ({}) could not be opened, please provide different path via the -o option.", args.two_tech_data_directory);
+        println!("TwoTech directory ({}) could not be opened, please provide different path via the -t option.", args.two_tech_data_directory);
         return Err(anyhow!(twotech_dir_err));
     }
     let mut two_tech_data_directory = args.two_tech_data_directory;

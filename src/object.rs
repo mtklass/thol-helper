@@ -138,14 +138,14 @@ impl FromStr for ClothingType {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.trim() {
-            "b" => Ok(ClothingType::Bottom),
-            "h" => Ok(ClothingType::Head),
-            "p" => Ok(ClothingType::Pack),
-            "p0" => Ok(ClothingType::Shield),
-            "s" => Ok(ClothingType::Shoe),
-            "t" => Ok(ClothingType::Top),
-            "n" => Ok(ClothingType::None),
+        match s.trim().to_ascii_lowercase().as_str() {
+            "b" | "bottom" => Ok(ClothingType::Bottom),
+            "h" | "head" => Ok(ClothingType::Head),
+            "p" | "pack" => Ok(ClothingType::Pack),
+            "p0" | "shield" => Ok(ClothingType::Shield),
+            "s" | "shoe" => Ok(ClothingType::Shoe),
+            "t" | "top" => Ok(ClothingType::Top),
+            "n" | "none" => Ok(ClothingType::None),
             _ => {
                 Err(anyhow!("Unsupported clothing type value \"{s}\""))
             }
