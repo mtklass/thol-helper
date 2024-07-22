@@ -14,10 +14,14 @@ use object::{ClothingType, Object};
 use serde_json::Value;
 
 #[derive(Parser, Default)]
-#[command(author, about)]
+#[command(
+    author,
+    about,
+    about = r#"Filter twotech's object data for objects that interest you."#
+)]
 pub struct Args {
-    #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
-    one_life_data_directory: String,
+    // #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
+    // one_life_data_directory: String,
     #[arg(short = 'o', long, default_value = "output.txt")]
     output_file: String,
     #[arg(short = 't', long, default_value = "../../TwoHoursOneLife/twotech")]
@@ -44,10 +48,10 @@ fn main() -> Result<()> {
     if args.clothing.is_some() {
         clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
     }
-    if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
-        println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
-        return Err(anyhow!(onelife_dir_err));
-    }
+    // if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
+    //     println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
+    //     return Err(anyhow!(onelife_dir_err));
+    // }
     if let Err(twotech_dir_err) = fs::read_dir(&args.two_tech_data_directory) {
         println!("TwoTech directory ({}) could not be opened, please provide different path via the -t option.", args.two_tech_data_directory);
         return Err(anyhow!(twotech_dir_err));
