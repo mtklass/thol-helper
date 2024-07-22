@@ -1,11 +1,11 @@
 mod object;
 
 use std::ops::Div;
-use std::{collections::HashSet, ops::Mul};
-use std::fs::File;
+use std::ops::Mul;
+use std::fs::{self, File};
 use std::io::BufReader;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
 use object::{ClothingType, Object};
@@ -14,25 +14,33 @@ use serde_json::Value;
 #[derive(Parser, Default)]
 #[command(author, about)]
 pub struct Args {
-    #[arg(short = 'd', long, default_value = ".")]
-    data_directory: String,
+    #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
+    one_life_data_directory: String,
+    #[arg(short = 'o', long, default_value = "output.txt")]
+    output_file: String,
+    #[arg(short = 't', long, default_value = "../../TwoHoursOneLife/twotech")]
+    two_tech_data_directory: String,
 }
 
 fn main() -> Result<()> {
-    // let mut unique_fields = HashSet::new();
-    // Read each object txt file in the provided directory, and attempt to parse it.
-    // Do if == on the original file data and the FromStr->ToString chain output.
     let args = Args::parse();
-    // Log errors, but keep going.
-    let mut data_directory = args.data_directory;
-    if !data_directory.ends_with("/") {
-        data_directory.push('/');
+    if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
+        println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -o option.", args.one_life_data_directory);
+        return Err(anyhow!(onelife_dir_err));
     }
-    let object_directory = data_directory.clone() + "objects/";
+    if let Err(twotech_dir_err) = fs::read_dir(&args.two_tech_data_directory) {
+        println!("TwoTech directory ({}) could not be opened, please provide different path via the -o option.", args.two_tech_data_directory);
+        return Err(anyhow!(twotech_dir_err));
+    }
+    let mut two_tech_data_directory = args.two_tech_data_directory;
+    if !two_tech_data_directory.ends_with("/") {
+        two_tech_data_directory.push('/');
+    }
+    let twotech_object_directory = two_tech_data_directory.clone() + "public/static/objects/";
 
     let mut objects = Vec::new();
 
-    for entry in glob(&format!("./{object_directory}/*.json")).expect("Failed to read glob pattern") {
+    for entry in glob(&format!("./{twotech_object_directory}/*.json")).expect("Failed to read glob pattern") {
         match entry {
             Ok(path) => {
                 let file = File::open(&path).expect("Unable to open file");
@@ -45,18 +53,20 @@ fn main() -> Result<()> {
                 let object_data: Object = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
                 objects.push(object_data);
             }
-            Err(e) => println!("{:?}", e),
+            Err(e) => println!("entry error: {:?}", e),
         }
     }
 
     let mut output_string_lines = Vec::new();
 
     let mut objects = objects.iter()
-        .filter(|obj| 
+        .filter(|obj| {
             obj.craftable.unwrap_or(false)
-            && obj.clothing == Some(ClothingType::Shoe)
+            // Specific type of clothing
+            && obj.clothing == Some(ClothingType::Top)
+            // && obj.clothing.as_ref().unwrap_or(&ClothingType::None) != &ClothingType::None
             && !&obj.name.clone().unwrap_or_default().contains("removed")
-        )
+        })
         .collect::<Vec<_>>();
     objects.sort_by_key(|k| k.name.clone());
 
@@ -64,7 +74,8 @@ fn main() -> Result<()> {
             output_string_lines.push("|-".to_string());
             output_string_lines.push(format!("|{{{{Card|{}}}}}", obj.name.clone().unwrap_or("ERROR: No name!".to_string())));
             output_string_lines.push(format!("|{:1.}%", obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0)));
+            output_string_lines.push(format!("|{}", obj.numSlots.map(|n| n.to_string()).unwrap_or("N/A".to_string())));
         });
-    std::fs::write("output-Shoe.txt", output_string_lines.join("\n"))?;
+    std::fs::write(&args.output_file, output_string_lines.join("\n"))?;
     Ok(())
 }

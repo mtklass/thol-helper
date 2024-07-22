@@ -5,6 +5,8 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Object {
+    // TODO: Make id not optional. That should really be required, shouldn't it?
+    pub id: Option<String>,
     pub recipe: Option<ObjectRecipe>,
     pub speedMult: Option<f64>,
     pub version:Option<i32>,
@@ -15,7 +17,6 @@ pub struct Object {
     pub transitionsTimed: Option<Vec<TransitionTimedData>>,
     pub transitionsToward: Option<Vec<TransitionTowardData>>,
     pub craftable: Option<bool>,
-    pub id: Option<String>,
     pub clothing: Option<ClothingType>,
     pub heatValue: Option<i32>,
     pub mapChance: Option<f64>,
@@ -63,47 +64,64 @@ pub struct ObjectRecipe {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct RecipeStep {
-    id: Option<String>,
-    mainBranch: Option<bool>,
-    depth: Option<i32>,
-    actorID: Option<String>,
-    hand: Option<bool>,
+    pub id: Option<String>,
+    pub mainBranch: Option<bool>,
+    pub depth: Option<i32>,
+    pub actorID: Option<String>,
+    pub hand: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Biome {
-    id: Option<String>,
-    spawnChance: Option<f64>,
+    pub id: Option<String>,
+    pub spawnChance: Option<f64>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct TransitionTimedData {
-    targetID: Option<String>,
-    newTargetID: Option<String>,
-    decay: Option<String>,
+    pub targetID: Option<String>,
+    pub newTargetID: Option<String>,
+    pub decay: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct TransitionTowardData {
-    actorID: Option<String>,
-    targetID: Option<String>,
-    newActorID: Option<String>,
-    newTargetID: Option<String>,
-    hand: Option<bool>,
-    decay: Option<String>,
+    pub actorID: Option<String>,
+    pub targetID: Option<String>,
+    pub newActorID: Option<String>,
+    pub newTargetID: Option<String>,
+    pub hand: Option<bool>,
+    pub decay: Option<String>,
 }
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub struct TransitionTowardDataVec {
+    pub transitions: Vec<TransitionTowardData>
+}
+
+impl TransitionTowardDataVec {
+    pub fn ingredient_is_in_complete_recipe(&self, id_to_find: String) -> bool {
+        // Go recursively through every stage of the object's recipe, checking if each ingredient along the way is our id_to_find.
+        // To make things more efficient and avoid infinite loops, don't repeat a check on an ingredient we've already looked at.
+        // We'd also like to short-circuit if possible, so we don't keep looking when we've already found the ingredient.
+        let mut ingredient_is_in_complete_recipe = false;
+
+        return ingredient_is_in_complete_recipe;
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct TransitionAwayData {
-    actorID: Option<String>,
-    targetID: Option<String>,
-    newActorID: Option<String>,
-    newTargetID: Option<String>,
-    newActorUses: Option<String>,
-    newActorWeight: Option<f32>,
-    targetRemains: Option<bool>,
-    hand: Option<bool>,
-    tool: Option<bool>,
-    decay: Option<String>,
+    pub actorID: Option<String>,
+    pub targetID: Option<String>,
+    pub newActorID: Option<String>,
+    pub newTargetID: Option<String>,
+    pub newActorUses: Option<String>,
+    pub newActorWeight: Option<f32>,
+    pub targetRemains: Option<bool>,
+    pub hand: Option<bool>,
+    pub tool: Option<bool>,
+    pub decay: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -190,6 +208,6 @@ impl<'de> Deserialize<'de> for ClothingType {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct TechTreeNode {
-    id: Option<String>,
-    nodes: Option<Vec<TechTreeNode>>,
+    pub id: Option<String>,
+    pub nodes: Option<Vec<TechTreeNode>>,
 }
