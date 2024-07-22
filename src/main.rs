@@ -22,6 +22,10 @@ pub struct Args {
     output_file: String,
     #[arg(short = 't', long, default_value = "../../TwoHoursOneLife/twotech")]
     two_tech_data_directory: String,
+    // Don't worry about this...it's an unfinished option that will possibly be broken out into another program.
+    // The idea is to convert an object list into table entries for a wiki page. It's too hard-coded though, and again, should also be broken out.
+    #[arg(long, default_value="false")]
+    wiki_table_output: bool,
 
 // Filtering options
     #[arg(long)]
@@ -73,8 +77,6 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut output_string_lines = Vec::new();
-
     let num_slots_filter = args.num_slots
         .clone()
         .unwrap_or(I32Range(RangeInclusive::new(0, i32::MAX)))
@@ -97,13 +99,28 @@ fn main() -> Result<()> {
         .collect::<Vec<_>>();
     objects.sort_by_key(|k| k.name.clone());
 
-    objects.iter().for_each(|obj| {
-            output_string_lines.push("|-".to_string());
-            output_string_lines.push(format!("|{{{{Card|{}}}}}", obj.name.clone().unwrap_or("ERROR: No name!".to_string())));
-            output_string_lines.push(format!("|{:1.}%", obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0)));
-            output_string_lines.push(format!("|{}", obj.numSlots.map(|n| n.to_string()).unwrap_or("N/A".to_string())));
-        });
-    std::fs::write(&args.output_file, output_string_lines.join("\n"))?;
+    if args.wiki_table_output {
+        let wiki_output_data =
+        objects
+            .iter()
+            .map(|obj| {
+                format!("|-
+|{{{{Card|{}}}}}
+|{:1.}%
+|{}",
+                    obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
+                    obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
+                    obj.numSlots.map(|n| n.to_string()).unwrap_or("N/A".to_string())
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(&args.output_file, wiki_output_data)?;
+    } else {
+        // Serialize the object list to JSON and save to the output file location
+        let objects_as_string = serde_json::to_string(&objects)?;
+        std::fs::write(&args.output_file, objects_as_string)?;
+    }
     Ok(())
 }
 

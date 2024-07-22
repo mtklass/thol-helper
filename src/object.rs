@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::str::FromStr;
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Object {
     // TODO: Make id not optional. That should really be required, shouldn't it?
     pub id: Option<String>,
@@ -56,13 +56,13 @@ where
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ObjectRecipe {
     pub steps: Option<Vec<Vec<RecipeStep>>>,
     pub ingredients: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RecipeStep {
     pub id: Option<String>,
     pub mainBranch: Option<bool>,
@@ -71,20 +71,20 @@ pub struct RecipeStep {
     pub hand: Option<bool>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Biome {
     pub id: Option<String>,
     pub spawnChance: Option<f64>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TransitionTimedData {
     pub targetID: Option<String>,
     pub newTargetID: Option<String>,
     pub decay: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TransitionTowardData {
     pub actorID: Option<String>,
     pub targetID: Option<String>,
@@ -94,7 +94,7 @@ pub struct TransitionTowardData {
     pub decay: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TransitionAwayData {
     pub actorID: Option<String>,
     pub targetID: Option<String>,
@@ -190,7 +190,7 @@ impl<'de> Deserialize<'de> for ClothingType {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TechTreeNode {
     pub id: Option<String>,
     pub nodes: Option<Vec<TechTreeNode>>,
