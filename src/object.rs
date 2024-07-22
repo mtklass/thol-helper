@@ -94,22 +94,6 @@ pub struct TransitionTowardData {
     pub decay: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
-pub struct TransitionTowardDataVec {
-    pub transitions: Vec<TransitionTowardData>
-}
-
-impl TransitionTowardDataVec {
-    pub fn ingredient_is_in_complete_recipe(&self, id_to_find: String) -> bool {
-        // Go recursively through every stage of the object's recipe, checking if each ingredient along the way is our id_to_find.
-        // To make things more efficient and avoid infinite loops, don't repeat a check on an ingredient we've already looked at.
-        // We'd also like to short-circuit if possible, so we don't keep looking when we've already found the ingredient.
-        let mut ingredient_is_in_complete_recipe = false;
-
-        return ingredient_is_in_complete_recipe;
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct TransitionAwayData {
     pub actorID: Option<String>,
