@@ -4,6 +4,7 @@ use std::ops::Div;
 use std::ops::Mul;
 use std::fs::{self, File};
 use std::io::BufReader;
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
@@ -27,6 +28,8 @@ pub struct Args {
     clothing: Option<String>,
     #[arg(long, default_value = "0")]
     min_pickup_age: i32,
+    #[arg(long, help = "examples: 1, 1000, 0..1, ..2, 4..")]
+    num_slots: Option<I32Range>,
 }
 
 fn main() -> Result<()> {
@@ -70,6 +73,11 @@ fn main() -> Result<()> {
 
     let mut output_string_lines = Vec::new();
 
+    let num_slots_filter = args.num_slots
+        .clone()
+        .unwrap_or(I32Range(RangeInclusive::new(0, i32::MAX)))
+        .0;
+
     let mut objects = objects.iter()
         .filter(|obj| {
             obj.craftable.unwrap_or(false)
@@ -80,7 +88,7 @@ fn main() -> Result<()> {
                 )
             )
             && obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
-            // && obj.clothing.as_ref().unwrap_or(&ClothingType::None) != &ClothingType::None
+            && num_slots_filter.contains(&obj.numSlots.unwrap_or(0))
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
         .collect::<Vec<_>>();
@@ -94,4 +102,27 @@ fn main() -> Result<()> {
         });
     std::fs::write(&args.output_file, output_string_lines.join("\n"))?;
     Ok(())
+}
+
+#[derive(Clone, Debug)]
+pub struct I32Range(RangeInclusive<i32>);
+
+impl FromStr for I32Range {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split("..").collect();
+        match parts.len() {
+            1 => {
+                let start: i32 = parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))?;
+                Ok(I32Range(start..=start))
+            },
+            2 => {
+                let start: i32 = if parts[0].is_empty() { 0 } else { parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
+                let end: i32 = if parts[1].is_empty() { i32::MAX } else { parts[1].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
+                Ok(I32Range(start..=end))
+            },
+            _ => Err(anyhow!("Invalid range format")),
+        }
+    }
 }
