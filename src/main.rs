@@ -68,7 +68,6 @@ fn main() -> Result<()> {
         match entry {
             Ok(path) => {
                 let file = File::open(&path).expect("Unable to open file");
-                // println!("Reading {}", path.to_str().unwrap());
                 let reader = BufReader::new(file);
                 let json: Value = serde_json::from_reader(reader).expect("Unable to parse JSON");
 
@@ -95,9 +94,13 @@ fn main() -> Result<()> {
                     && clothing_to_match.contains(obj.clothing.as_ref().unwrap())
                 )
             )
+            // Is over minimum pickup age filter (0 if not specified)
             && obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
+            // Number of slots for item falls within specified range (default is all positive values)
             && num_slots_filter.contains(&obj.numSlots.unwrap_or(0))
-            && obj.slotSize.unwrap_or_default() > args.min_slot_size
+            // slotSize is at least as large as the minimum slot size
+            && obj.slotSize.unwrap_or_default() >= args.min_slot_size
+            // object isn't marked as removed
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
         .collect::<Vec<_>>();
