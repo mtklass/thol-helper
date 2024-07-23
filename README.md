@@ -24,4 +24,4 @@ e.g.
 ```
 cargo run -- -o slotted-nonpack-clothing.json --num-slots 2.. --slot-size 1.0.. --clothing Top,Bottom,Shoe,Head
 ```
-This will filter for all clothing items (except shields and packs) that have at least 1 slot (with slot size of 1.0 or greater -- 1.0 means small item).
+This will filter for all clothing items (except shields and packs) that have at least 1 slot, with slot size of 1.0 or greater (1.0 means small item).
