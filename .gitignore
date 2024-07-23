@@ -13,7 +13,9 @@ Cargo.lock
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-
 # Added by cargo
 
 /target
+
+# The default output file used by the program
+output.json
