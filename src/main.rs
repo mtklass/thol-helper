@@ -1,6 +1,5 @@
 mod object;
 
-use std::io::Read;
 use std::io::Write;
 use std::ops::Div;
 use std::ops::Mul;
@@ -54,7 +53,7 @@ pub struct Args {
 }
 
 fn pause(message: Option<String>) -> bool {
-    let mut stdin = std::io::stdin();
+    let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
 
     let default_message = "Type y or yes and ENTER to continue, anything else to exit: ";
