@@ -46,7 +46,7 @@ pub struct Args {
     clothing: Option<String>,
     #[arg(long, default_value = "0")]
     min_pickup_age: i32,
-    #[arg(long, default_value = "0")]
+    #[arg(long, help = "examples: 1, 0.1..8, 0..1.5, 1..2, 4..")]
     slot_size: Option<F32Range>,
     #[arg(long, help = "examples: 1, 1000, 0..1, ..2, 4..")]
     num_slots: Option<I32Range>,
