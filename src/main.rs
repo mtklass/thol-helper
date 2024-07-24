@@ -25,7 +25,6 @@ const DEFAULT_OUTOUT_FILENAME: &str = "output.json";
     about,
     about = r#"Filter twotech's object data for objects that interest you."#
 )]
-
 pub struct Args {
     // #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
     // one_life_data_directory: String,
@@ -53,8 +52,26 @@ pub struct Args {
     slot_size: Option<F32Range>,
     #[arg(long, help = "examples: 1, 1000, 0..1, ..2, 4..")]
     num_slots: Option<I32Range>,
-    #[arg(long, help = "Filter for specific ingredient being present in object's recursive recipe trees (can use object name or ID)")]
-    needs_ingredient: Option<String>,
+    #[arg(
+        long,
+        help = "Filter for specific ingredient(s) being present in object's recursive recipe trees (comma-separated, can use object name or ID).
+Specify multiple times for logical OR across specified lists",
+        value_parser = clap::value_parser!(IngredientSet)
+    )]
+    needs_ingredients: Option<Vec<IngredientSet>>,
+    // #[arg(long, help = "Filter for specific ingredient NOT being present in object's recursive recipe trees (can use object name or ID)")]
+    // without_ingredient: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct IngredientSet(Vec<String>);
+
+impl FromStr for IngredientSet {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(IngredientSet(s.split(',').map(|s| s.to_string()).collect::<Vec<String>>()))
+    }
 }
 
 fn main() -> Result<()> {
@@ -112,20 +129,29 @@ fn main() -> Result<()> {
     .map(|o| (o.id.clone().unwrap(), o.to_owned()))
     .collect::<HashMap<String, Object>>();
 
-    // Convert user-entered ingredient to ID (unless user provided a number)
-    let ingredient_to_find = args.needs_ingredient
-        .map(|i| {
-            if i.parse::<i32>().is_ok() {
-                Some(i)
-            } else {
-                objects
-                .iter()
-                .find(|o| o.name.as_ref().is_some_and(|n| n == &i))
-                .map(|o| o.id.clone())
-                .flatten()
-            }
-        })
-        .flatten();
+    let ingredient_sets_to_find = args.needs_ingredients
+        // Act on args.needs_ingredients if it is present
+        .map(|ingredient_sets| {
+            // Iterate through all the sets of ingredients the user provided (via separately defined option calls)
+            ingredient_sets.into_iter()
+                .map(|ingredient_set| {
+                    // Convert ingredient set into an option that either has the converted ingredient name into an ID, the ID as-provided, or None
+                    ingredient_set.0.into_iter()
+                        .filter_map(|ingredient| {
+                            if ingredient.parse::<i32>().is_ok() {
+                                Some(ingredient)
+                            } else {
+                                objects
+                                .iter()
+                                .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                                .map(|o| o.id.clone())
+                                .flatten()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        });
 
     // numSlots filter. Default is all values > 0
     let num_slots_filter = args.num_slots
@@ -158,11 +184,31 @@ fn main() -> Result<()> {
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
         .collect::<Vec<_>>();
-
+    println!("ingredient_sets_to_find = {:?}", ingredient_sets_to_find);
     // Filter for objects that contain a specific ID in the ingredients list, recursively
-    if let Some(ingredient_to_find) = ingredient_to_find {
+    if let Some(ingredient_sets_to_find) = ingredient_sets_to_find {
         objects = objects.into_iter()
-            .filter(|&obj| find_target_id(obj, ingredient_to_find.as_str(), &objects_hashmap))
+            .filter(|&obj| {
+                // Instead of just looking for the one target ID, we need to look for the all the values in each set.
+                // If any set has all its values matched, we have a match!
+                let mut found_match = false;
+                for ingredient_set in &ingredient_sets_to_find {
+                    // All ingredients must be present in recipe (actual check is "no ingredients may not be present")
+                    let ingredient_set_matches = !ingredient_set
+                        .iter()
+                        // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
+                        .map(|i| find_target_id(obj, i.as_str(), &objects_hashmap))
+                        .collect::<Vec<_>>()
+                        .contains(&None);
+
+                    if ingredient_set_matches {
+                        // Immediately exit if we've found a match
+                        found_match = true;
+                        break;
+                    }
+                }
+                found_match
+            })
             .collect::<Vec<_>>();
     }
     objects.sort_by_key(|k| k.name.clone());
@@ -238,7 +284,7 @@ impl FromStr for F32Range {
     }
 }
 
-fn find_target_id(root_obj: &Object, target_id: &str, object_database: &HashMap<String, Object>) -> bool {
+fn find_target_id<'a>(root_obj: &'a Object, target_id: &str, object_database: &'a HashMap<String, Object>) -> Option<&'a Object> {
     let mut stack = Vec::new();
     let mut visited = HashSet::new();
     stack.push(root_obj);
@@ -256,7 +302,7 @@ fn find_target_id(root_obj: &Object, target_id: &str, object_database: &HashMap<
         }
         // If current object is the ID we're looking for, return true!
         if obj_id.as_str() == target_id {
-            return true;
+            return Some(obj);
         }
         // println!("New Total: {} after adding object ID to visited: {obj_id}", visited.len());
         visited.insert(obj_id);
@@ -269,10 +315,8 @@ fn find_target_id(root_obj: &Object, target_id: &str, object_database: &HashMap<
         // Check each ingredient for being the target_id, and if we haven't yet visited the ingredient, push it to the list
         if let Some(ingredients) = obj_recipe.ingredients.as_ref().map(|ivec| HashSet::<&String>::from_iter(ivec.iter())) {
             for ingredient in ingredients {
-                // println!("Checking ingredient {ingredient}");
                 if ingredient.as_str() == target_id {
-                    println!("Ingredient {ingredient} matched!");
-                    return true;
+                    return Some(obj);
                 }
                 if !visited.contains(ingredient) {
                     // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
@@ -321,10 +365,10 @@ fn find_target_id(root_obj: &Object, target_id: &str, object_database: &HashMap<
                 return false;
             })
         ) {
-            return true;
+            return Some(obj);
         }
     }
-    false
+    return None;
 }
 
 fn pause(message: Option<String>) -> bool {
