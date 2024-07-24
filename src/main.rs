@@ -58,7 +58,7 @@ pub struct Args {
 Specify multiple times for logical OR across specified lists",
         value_parser = clap::value_parser!(IngredientSet)
     )]
-    needs_ingredients: Option<Vec<IngredientSet>>,
+    with_ingredients: Option<Vec<IngredientSet>>,
     // #[arg(long, help = "Filter for specific ingredient NOT being present in object's recursive recipe trees (can use object name or ID)")]
     // without_ingredient: Option<String>,
 }
@@ -129,7 +129,7 @@ fn main() -> Result<()> {
     .map(|o| (o.id.clone().unwrap(), o.to_owned()))
     .collect::<HashMap<String, Object>>();
 
-    let ingredient_sets_to_find = args.needs_ingredients
+    let ingredient_sets_to_find = args.with_ingredients
         // Act on args.needs_ingredients if it is present
         .map(|ingredient_sets| {
             // Iterate through all the sets of ingredients the user provided (via separately defined option calls)
@@ -184,7 +184,7 @@ fn main() -> Result<()> {
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
         .collect::<Vec<_>>();
-    println!("ingredient_sets_to_find = {:?}", ingredient_sets_to_find);
+
     // Filter for objects that contain a specific ID in the ingredients list, recursively
     if let Some(ingredient_sets_to_find) = ingredient_sets_to_find {
         objects = objects.into_iter()
