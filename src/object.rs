@@ -56,9 +56,11 @@ where
     }
 }
 
+pub type RecipeStepRow = Vec<RecipeStep>;
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ObjectRecipe {
-    pub steps: Option<Vec<Vec<RecipeStep>>>,
+    pub steps: Option<Vec<RecipeStepRow>>,
     pub ingredients: Option<Vec<String>>,
 }
 
@@ -68,7 +70,11 @@ pub struct RecipeStep {
     pub mainBranch: Option<bool>,
     pub depth: Option<i32>,
     pub actorID: Option<String>,
+    pub actorUses: Option<String>,
     pub hand: Option<bool>,
+    pub uses: Option<String>,
+    pub targetID: Option<String>,
+    pub targetUses: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

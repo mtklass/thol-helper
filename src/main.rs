@@ -1,11 +1,14 @@
 mod object;
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::Write;
 use std::ops::Div;
 use std::ops::Mul;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::ops::RangeInclusive;
+use std::process;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
@@ -50,37 +53,8 @@ pub struct Args {
     slot_size: Option<F32Range>,
     #[arg(long, help = "examples: 1, 1000, 0..1, ..2, 4..")]
     num_slots: Option<I32Range>,
-}
-
-fn pause(message: Option<String>) -> bool {
-    let stdin = std::io::stdin();
-    let mut stdout = std::io::stdout();
-
-    let default_message = "Type y or yes and ENTER to continue, anything else to exit: ";
-
-    // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
-    
-    if let Some(message) = message {
-        println!("{}", message);
-    }
-    // println!("{default_message}");
-    stdout.write(default_message.as_bytes()).unwrap();
-    stdout.flush().unwrap();
-
-    // We want to save the string entered by the user.
-    let mut stdin_data = String::new();
-
-    // Read a single byte and discard
-    let _bytes_read = stdin.read_line(&mut stdin_data).unwrap();
-    let trimmed_stdin_data = stdin_data.trim();
-    if trimmed_stdin_data.len() > 0 {
-        let stdin_data = trimmed_stdin_data.to_lowercase();
-        let stdin_data_str = stdin_data.as_str();
-        if stdin_data_str == "y" || stdin_data_str == "yes" {
-            return true;
-        }
-    }
-    return false;
+    #[arg(long, help = "Filter for specific ingredient being present in object's recursive recipe trees (can use object name or ID)")]
+    needs_ingredient: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -131,6 +105,28 @@ fn main() -> Result<()> {
         }
     }
 
+    // Create object hashmap to more easily access objects by ID
+    let objects_hashmap = objects
+    .iter()
+    .filter(|&o| o.id.is_some())
+    .map(|o| (o.id.clone().unwrap(), o.to_owned()))
+    .collect::<HashMap<String, Object>>();
+
+    // Convert user-entered ingredient to ID (unless user provided a number)
+    let ingredient_to_find = args.needs_ingredient
+        .map(|i| {
+            if i.parse::<i32>().is_ok() {
+                Some(i)
+            } else {
+                objects
+                .iter()
+                .find(|o| o.name.as_ref().is_some_and(|n| n == &i))
+                .map(|o| o.id.clone())
+                .flatten()
+            }
+        })
+        .flatten();
+
     // numSlots filter. Default is all values > 0
     let num_slots_filter = args.num_slots
         .clone()
@@ -162,6 +158,13 @@ fn main() -> Result<()> {
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
         .collect::<Vec<_>>();
+
+    // Filter for objects that contain a specific ID in the ingredients list, recursively
+    if let Some(ingredient_to_find) = ingredient_to_find {
+        objects = objects.into_iter()
+            .filter(|&obj| find_target_id(obj, ingredient_to_find.as_str(), &objects_hashmap))
+            .collect::<Vec<_>>();
+    }
     objects.sort_by_key(|k| k.name.clone());
 
     if args.wiki_table_output {
@@ -233,4 +236,122 @@ impl FromStr for F32Range {
             _ => Err(anyhow!("Invalid range format")),
         }
     }
+}
+
+fn find_target_id(root_obj: &Object, target_id: &str, object_database: &HashMap<String, Object>) -> bool {
+    let mut stack = Vec::new();
+    let mut visited = HashSet::new();
+    stack.push(root_obj);
+    // println!("Searching for ({:>5}, {}) in ({:>5}, {})",
+    //     target_id,
+    //     object_database.get(target_id).map_or("", |o| o.name.as_ref().map(|s| s.as_str()).unwrap_or("")),
+    //     root_obj.id.as_ref().map_or("", |s| s.as_str()),
+    //     root_obj.name.as_ref().map_or("", |s| s.as_str()),
+    // );
+    while let Some(obj) = stack.pop() {
+        // If object has no ID or has already been visited, skip it
+        let obj_id = obj.id.clone().unwrap_or_default();
+        if obj_id.is_empty() || visited.contains(&obj_id) {
+            continue;
+        }
+        // If current object is the ID we're looking for, return true!
+        if obj_id.as_str() == target_id {
+            return true;
+        }
+        // println!("New Total: {} after adding object ID to visited: {obj_id}", visited.len());
+        visited.insert(obj_id);
+
+        let obj_recipe = match &obj.recipe {
+            Some(recipe) => recipe,
+            None => continue,
+        };
+
+        // Check each ingredient for being the target_id, and if we haven't yet visited the ingredient, push it to the list
+        if let Some(ingredients) = obj_recipe.ingredients.as_ref().map(|ivec| HashSet::<&String>::from_iter(ivec.iter())) {
+            for ingredient in ingredients {
+                // println!("Checking ingredient {ingredient}");
+                if ingredient.as_str() == target_id {
+                    println!("Ingredient {ingredient} matched!");
+                    return true;
+                }
+                if !visited.contains(ingredient) {
+                    // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
+                    if let Some(ingredient_object) = object_database.get(ingredient) {
+                        stack.push(ingredient_object);
+                    }
+                }
+            }
+        }
+
+        // Push onto our stack all the unique values in the object recipe that we haven't yet visited
+        obj_recipe.steps
+        .as_ref()
+        .unwrap_or(&Vec::default())
+        .into_iter()
+        .flatten()
+        .flat_map(|rs| [rs.actorID.clone().unwrap_or_default(), rs.targetID.clone().unwrap_or_default()])
+        .filter(|ingredient| !visited.contains(ingredient))
+        .filter_map(|ingredient| object_database.get(&ingredient))
+        .for_each(|recipe_ingredient_object| stack.push(recipe_ingredient_object));
+
+        if obj.recipe.as_ref().is_some_and(|r|
+            r.ingredients.as_ref()
+            .map(|ingredients| HashSet::<&String>::from_iter(ingredients.iter()))
+            .is_some_and(|ingredients| {
+                // Now we have a list of all the unique items in the ingredients list.
+                // We need to check if any of them are the target_id
+                // We then need to check if we've already visited each ingredient, and if not, push it to the stack
+                for ingredient in ingredients {
+                    // println!("Checking ingredient {ingredient}");
+                    if ingredient.as_str() == target_id {
+                        println!("Ingredient {ingredient} matched!");
+                        return true;
+                    }
+                    if !visited.contains(ingredient) {
+                        // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
+                        if let Some(ingredient_object) = object_database.get(ingredient) {
+                            stack.push(ingredient_object);
+                        } else {
+                            println!("Oh crud");
+                            process::exit(-10);
+                        }
+                    }
+                }
+                // If none of the ingredients contained the target_id, return false
+                return false;
+            })
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+fn pause(message: Option<String>) -> bool {
+    let stdin = std::io::stdin();
+    let mut stdout = std::io::stdout();
+    // If the caller defined an initial message to send to the user, print it out.
+    if let Some(message) = message {
+        println!("{}", message);
+    }
+
+    // Always print out the default message, explaining how to continue or exit.
+    let default_message = "Type y or yes and ENTER to continue, anything else to exit: ";
+    stdout.write(default_message.as_bytes()).unwrap();
+    stdout.flush().unwrap();
+
+    // We want to save the string entered by the user.
+    let mut stdin_data = String::new();
+
+    // Look at what the user typed and only return true if they types "y" or "yes", where any/all letters can be uppercase or lowercase
+    let _bytes_read = stdin.read_line(&mut stdin_data).unwrap();
+    let trimmed_stdin_data = stdin_data.trim();
+    if trimmed_stdin_data.len() > 0 {
+        let stdin_data = trimmed_stdin_data.to_lowercase();
+        let stdin_data_str = stdin_data.as_str();
+        if stdin_data_str == "y" || stdin_data_str == "yes" {
+            return true;
+        }
+    }
+    return false;
 }
