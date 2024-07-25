@@ -56,11 +56,16 @@ pub struct Args {
         long,
         help = "Filter for specific ingredient(s) being present in object's recursive recipe trees (comma-separated, can use object name or ID).
 Specify multiple times for logical OR across specified lists",
-        value_parser = clap::value_parser!(IngredientSet)
+        value_parser = clap::value_parser!(IngredientSet),
     )]
     with_ingredients: Option<Vec<IngredientSet>>,
-    // #[arg(long, help = "Filter for specific ingredient NOT being present in object's recursive recipe trees (can use object name or ID)")]
-    // without_ingredient: Option<String>,
+    #[arg(
+        long,
+        help = "Filter for specific ingredient(s) being present in object's recursive recipe trees (comma-separated, can use object name or ID).
+    Specify multiple times for logical OR across specified lists",
+        value_parser = clap::value_parser!(IngredientSet),
+    )]
+    without_ingredients: Option<Vec<IngredientSet>>,
 }
 
 #[derive(Debug, Clone)]
@@ -129,28 +134,52 @@ fn main() -> Result<()> {
     .map(|o| (o.id.clone().unwrap(), o.to_owned()))
     .collect::<HashMap<String, Object>>();
 
+    let ingredient_sets_to_exclude = args.without_ingredients
+        .map(|ingredient_sets| {
+            ingredient_sets.into_iter()
+            .map(|ingredient_set| {
+                // Convert ingredient set into an option that either has the converted ingredient name into an ID, the ID as-provided, or None
+                ingredient_set.0
+                .into_iter()
+                .filter_map(|ingredient| {
+                    if ingredient.parse::<i32>().is_ok() {
+                        Some(ingredient)
+                    } else {
+                        objects
+                        .iter()
+                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                        .map(|o| o.id.clone())
+                        .flatten()
+                    }
+                })
+                .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+        });
+
     let ingredient_sets_to_find = args.with_ingredients
         // Act on args.needs_ingredients if it is present
         .map(|ingredient_sets| {
             // Iterate through all the sets of ingredients the user provided (via separately defined option calls)
             ingredient_sets.into_iter()
-                .map(|ingredient_set| {
-                    // Convert ingredient set into an option that either has the converted ingredient name into an ID, the ID as-provided, or None
-                    ingredient_set.0.into_iter()
-                        .filter_map(|ingredient| {
-                            if ingredient.parse::<i32>().is_ok() {
-                                Some(ingredient)
-                            } else {
-                                objects
-                                .iter()
-                                .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                                .map(|o| o.id.clone())
-                                .flatten()
-                            }
-                        })
-                        .collect::<Vec<_>>()
+            .map(|ingredient_set| {
+                // Convert ingredient set into an option that either has the converted ingredient name into an ID, the ID as-provided, or None
+                ingredient_set.0
+                .into_iter()
+                .filter_map(|ingredient| {
+                    if ingredient.parse::<i32>().is_ok() {
+                        Some(ingredient)
+                    } else {
+                        objects
+                        .iter()
+                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                        .map(|o| o.id.clone())
+                        .flatten()
+                    }
                 })
                 .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
         });
 
     // numSlots filter. Default is all values > 0
@@ -185,7 +214,7 @@ fn main() -> Result<()> {
         })
         .collect::<Vec<_>>();
 
-    // Filter for objects that contain a specific ID in the ingredients list, recursively
+    // Filter for objects that contain any set of other object IDs in its recipe (recursively)
     if let Some(ingredient_sets_to_find) = ingredient_sets_to_find {
         objects = objects.into_iter()
             .filter(|&obj| {
@@ -211,6 +240,32 @@ fn main() -> Result<()> {
             })
             .collect::<Vec<_>>();
     }
+
+    // Filter for objects that DO NOT contain any set of other object IDs in its recipe (recursively)
+    if let Some(ingredient_sets_to_exclude) = ingredient_sets_to_exclude {
+        objects = objects.into_iter()
+            .filter(|obj| {
+                let mut an_ingredient_set_does_not_match = true;
+                // If any ingredient set is present, we've found a match
+                for ingredient_set in &ingredient_sets_to_exclude {
+                    // All ingredients must be present for ingredient set to be a match
+                    let ingredient_set_matches = !ingredient_set
+                        .iter()
+                        // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
+                        .map(|i| find_target_id(obj, i.as_str(), &objects_hashmap))
+                        .collect::<Vec<_>>()
+                        .contains(&None);
+                    if ingredient_set_matches {
+                        an_ingredient_set_does_not_match = false;
+                        break;
+                    }
+                }
+                an_ingredient_set_does_not_match
+            })
+            .collect::<Vec<_>>();
+    }
+
+    // Finally, sort the objects by their name, since it's the most human-friendly ordering
     objects.sort_by_key(|k| k.name.clone());
 
     if args.wiki_table_output {
