@@ -52,6 +52,9 @@ pub struct Args {
     slot_size: Option<F32Range>,
     #[arg(long, help = "examples: 1, 1000, 0..1, ..2, 4..")]
     num_slots: Option<I32Range>,
+    #[arg(long)]
+    // If is_food is None, no filter. If Some(), either filter for food (true), or non-food (false)
+    is_food: Option<bool>,
     #[arg(
         long,
         help = "Filter for specific ingredient(s) being present in object's recursive recipe trees (comma-separated, can use object name or ID).
@@ -134,6 +137,7 @@ fn main() -> Result<()> {
     .map(|o| (o.id.clone().unwrap(), o.to_owned()))
     .collect::<HashMap<String, Object>>();
 
+    // Prepare ingredient sets to exclude based on user input
     let ingredient_sets_to_exclude = args.without_ingredients
         .map(|ingredient_sets| {
             ingredient_sets.into_iter()
@@ -157,6 +161,7 @@ fn main() -> Result<()> {
             .collect::<Vec<_>>()
         });
 
+    // Prepare ingredient sets to find based on user input
     let ingredient_sets_to_find = args.with_ingredients
         // Act on args.needs_ingredients if it is present
         .map(|ingredient_sets| {
@@ -209,6 +214,10 @@ fn main() -> Result<()> {
             && num_slots_filter.contains(&obj.numSlots.unwrap_or(0))
             // slotSize is for item falls within specified range (default is all values allowed)
             && slot_size_filter.contains(&obj.slotSize.unwrap_or(f32::MIN))
+            && (
+                args.is_food.is_none() ||
+                (obj.foodValue.as_ref().is_some_and(|f| f.len() > 0) == args.is_food.unwrap())
+            )
             // object isn't marked as removed
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
