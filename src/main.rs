@@ -288,7 +288,7 @@ fn main() -> Result<()> {
 |{}",
                     obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
                     obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
-                    obj.numSlots.map(|n| n.to_string()).unwrap_or("N/A".to_string())
+                    obj.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string())
                 )
             })
             .collect::<Vec<_>>()
