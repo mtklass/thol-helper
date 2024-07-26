@@ -251,25 +251,27 @@ fn main() -> Result<()> {
     }
 
     // Filter for objects that DO NOT contain any set of other object IDs in its recipe (recursively)
+    // Item must not include ANY of these sets of ingredients in its recipe tree
     if let Some(ingredient_sets_to_exclude) = ingredient_sets_to_exclude {
         objects = objects.into_iter()
             .filter(|obj| {
-                let mut an_ingredient_set_does_not_match = true;
+                let mut an_ingredient_set_matches = false;
                 // If any ingredient set is present, we've found a match
                 for ingredient_set in &ingredient_sets_to_exclude {
                     // All ingredients must be present for ingredient set to be a match
-                    let ingredient_set_matches = !ingredient_set
+                    let missing_an_ingredient = ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
                         .map(|i| find_target_id(obj, i.as_str(), &objects_hashmap))
                         .collect::<Vec<_>>()
                         .contains(&None);
-                    if ingredient_set_matches {
-                        an_ingredient_set_does_not_match = false;
+                    if !missing_an_ingredient {
+                        an_ingredient_set_matches = true;
                         break;
                     }
                 }
-                an_ingredient_set_does_not_match
+                // We only want to keep objects that don't contain any of the ingredient sets in the query
+                !an_ingredient_set_matches
             })
             .collect::<Vec<_>>();
     }
