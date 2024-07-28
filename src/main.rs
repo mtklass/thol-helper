@@ -14,6 +14,7 @@ use std::process;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
+use clap::error::ErrorKind;
 use clap::Parser;
 use glob::glob;
 use one_life_data_object::OneLifeDataObject;
@@ -29,8 +30,6 @@ const DEFAULT_OUTOUT_FILENAME: &str = "output.json";
     about = r#"Filter twotech's object data for objects that interest you."#
 )]
 pub struct Args {
-    #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
-    one_life_data_directory: String,
     #[arg(
         short = 'o',
         long,
@@ -39,6 +38,16 @@ pub struct Args {
     )]
     output_file: String,
 
+    #[arg(
+        short = 'r',
+        long,
+        default_value = "false",
+        help = "Refresh cached OneLifeData7 and twotech data",
+    )]
+    regenerate_data: bool,
+
+    #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
+    one_life_data_directory: String,
     #[arg(short = 't', long, default_value = "../TwoTech-ProcessOutput")]
     twotech_data_directory: String,
     // Don't worry about this...it's an unfinished option that will possibly be broken out into another program.
@@ -107,86 +116,108 @@ fn main() -> Result<()> {
     if args.clothing.is_some() {
         clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
     }
-    if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
-        println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
-        return Err(anyhow!(onelife_dir_err));
+    const INTERMEDIATE_FILES_DIR: &str = "intermediate-files";
+    if fs::read_dir(INTERMEDIATE_FILES_DIR).is_err() {
+        fs::create_dir(INTERMEDIATE_FILES_DIR)?;
     }
-    let mut one_life_data_directory = args.one_life_data_directory;
-    if !one_life_data_directory.ends_with("/") {
-        one_life_data_directory.push('/');
+    const ONELIFEDATA7_OBJECT_DATA_FILE: &str = "intermediate-files/OneLifeData7_Objects.json";
+    const TWOTECH_OBJECT_DATA_FILE: &str = "intermediate-files/twotech_Objects.json";
+    // Force regeneration of intermediate-files
+    if args.regenerate_data {
+        println!("Generated data refresh triggered.");
+        println!(" > Removing intermediate-files for OneLifeData7 and twotech object data.");
+        fs::remove_file(ONELIFEDATA7_OBJECT_DATA_FILE).ok();
+        fs::remove_file(TWOTECH_OBJECT_DATA_FILE).ok();
     }
-    let one_life_object_directory = one_life_data_directory + "objects/";
-    let one_life_object_dir_contents = fs::read_dir(one_life_object_directory)?;
-    let mut one_life_game_objects = HashMap::new();
-    for one_life_data_entry in one_life_object_dir_contents {
-        if let Ok(one_life_data_entry) = one_life_data_entry {
-            // Check if the entry is a file and matches the pattern
-            if let Ok(metadata) = one_life_data_entry.metadata() {
-                if metadata.is_file() {
-                    let file_name = one_life_data_entry.file_name();
-                    let file_name = file_name.to_string_lossy();
-
-                    if let Some(captures) = regex::Regex::new(r"^(\d+)\.txt$").unwrap().captures(&file_name) {
-                        // For debugging, only look at file we care about
-                        // if captures.get(1).unwrap().as_str() != "14492" {
-                        //     continue;
-                        // }
-                        // println!("Parsing file {file_name}");
-                        // Read the file into a string
-                        let object_id = match captures.get(1) {
-                            Some(id) => id.as_str(),
-                            None => continue,
-                        };
-                        let mut file = fs::File::open(one_life_data_entry.path()).unwrap();
-                        let mut contents = String::new();
-                        file.read_to_string(&mut contents).unwrap();
-                        if let Ok(object) = OneLifeDataObject::from_str(&contents) {
-                            one_life_game_objects.insert(object_id.to_string(), object);
-                        } else {
-                            println!("Error converting file contents to object: {}", one_life_data_entry.path().to_string_lossy());
+    // Try to load intermediate-files data into OneLifeData7 object data HashMap
+    // If the file exists but doesn't make sense, delete it
+    // If it didn't make sense or it didn't exist, recreate data and save to intermediate-files/OneLifeData7_Objects.json
+    // If it parsed, great!
+    let initial_one_life_game_objects = if let Ok(one_life_file_data) = fs::read_to_string(ONELIFEDATA7_OBJECT_DATA_FILE) {
+        serde_json::from_str::<HashMap<String, OneLifeDataObject>>(one_life_file_data.as_str())?
+    } else {
+        println!("Intermediate file for OneLifeData7 object data is not present, we must regenerate it from OneLifeData7 data.");
+        if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
+            println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
+            return Err(anyhow!(onelife_dir_err));
+        }
+        let mut one_life_data_directory = args.one_life_data_directory;
+        if !one_life_data_directory.ends_with("/") {
+            one_life_data_directory.push('/');
+        }
+        let one_life_object_directory = one_life_data_directory + "objects/";
+        let one_life_object_dir_contents = fs::read_dir(one_life_object_directory)?;
+        let mut one_life_game_objects = HashMap::new();
+        for one_life_data_entry in one_life_object_dir_contents {
+            if let Ok(one_life_data_entry) = one_life_data_entry {
+                // Check if the entry is a file and matches the pattern
+                if let Ok(metadata) = one_life_data_entry.metadata() {
+                    if metadata.is_file() {
+                        let file_name = one_life_data_entry.file_name();
+                        let file_name = file_name.to_string_lossy();
+                        if let Some(captures) = regex::Regex::new(r"^(\d+)\.txt$").unwrap().captures(&file_name) {
+                            // For debugging, only look at file we care about
+                            // if captures.get(1).unwrap().as_str() != "14492" {
+                            //     continue;
+                            // }
+                            // println!("Parsing file {file_name}");
+                            // Read the file into a string
+                            let object_id = match captures.get(1) {
+                                Some(id) => id.as_str(),
+                                None => continue,
+                            };
+                            let mut file = fs::File::open(one_life_data_entry.path()).unwrap();
+                            let mut contents = String::new();
+                            file.read_to_string(&mut contents).unwrap();
+                            if let Ok(object) = OneLifeDataObject::from_str(&contents) {
+                                one_life_game_objects.insert(object_id.to_string(), object);
+                            } else {
+                                println!("Error converting file contents to object: {}", one_life_data_entry.path().to_string_lossy());
+                            }
                         }
                     }
                 }
             }
         }
-    }
-    println!("Parsed {} game object files", one_life_game_objects.len());
-    return Ok(());
+        println!("Parsed {} OneLifeData7 object files", one_life_game_objects.len());
+        fs::write(ONELIFEDATA7_OBJECT_DATA_FILE, serde_json::to_string(&one_life_game_objects)?)?;
+        one_life_game_objects
+    };
 
-    if let Err(twotech_dir_err) = fs::read_dir(&args.twotech_data_directory) {
-        println!("TwoTech directory ({}) could not be opened, please provide different path via the -t option.", args.twotech_data_directory);
-        return Err(anyhow!(twotech_dir_err));
-    }
-    let mut two_tech_data_directory = args.twotech_data_directory;
-    if !two_tech_data_directory.ends_with("/") {
-        two_tech_data_directory.push('/');
-    }
-    let twotech_object_directory = two_tech_data_directory.clone() + "public/static/objects/";
-
-    let mut objects = Vec::new();
-
-    for entry in glob(&format!("./{twotech_object_directory}/*.json")).expect("Failed to read glob pattern") {
-        match entry {
-            Ok(path) => {
-                let file = File::open(&path).expect("Unable to open file");
-                let reader = BufReader::new(file);
-                let json: Value = serde_json::from_reader(reader).expect("Unable to parse JSON");
-
-                let json_string = serde_json::to_string(&json)?;
-
-                let object_data: TwoTechObject = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
-                objects.push(object_data);
-            }
-            Err(e) => println!("entry error: {:?}", e),
+    let initial_twotech_objects = if let Ok(twotech_file_data) = fs::read_to_string(TWOTECH_OBJECT_DATA_FILE) {
+        serde_json::from_str::<HashMap<String, TwoTechObject>>(twotech_file_data.as_str())?
+    } else {
+        println!("Intermediate file for twotech object data is not present, we must regenerate it from twotech data.");
+        if let Err(twotech_dir_err) = fs::read_dir(&args.twotech_data_directory) {
+            println!("TwoTech directory ({}) could not be opened, please provide different path via the -t option.", args.twotech_data_directory);
+            return Err(anyhow!(twotech_dir_err));
         }
-    }
+        let mut twotech_data_directory = args.twotech_data_directory;
+        if !twotech_data_directory.ends_with("/") {
+            twotech_data_directory.push('/');
+        }
+        let twotech_object_directory = twotech_data_directory.clone() + "public/static/objects/";
 
-    // Create object hashmap to more easily access objects by ID
-    let objects_hashmap = objects
-    .iter()
-    .filter(|&o| o.id.is_some())
-    .map(|o| (o.id.clone().unwrap(), o.to_owned()))
-    .collect::<HashMap<String, TwoTechObject>>();
+        let mut twotech_objects = HashMap::new();
+        for entry in glob(&format!("./{twotech_object_directory}/*.json")).expect("Failed to read glob pattern") {
+            match entry {
+                Ok(path) => {
+                    let file = File::open(&path).expect("Unable to open file");
+                    let reader = BufReader::new(file);
+                    let json: Value = serde_json::from_reader(reader).expect("Unable to parse JSON");
+                    let json_string = serde_json::to_string(&json)?;
+                    let object_data: TwoTechObject = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
+                    if let Some (id) = object_data.id.clone() {
+                        twotech_objects.insert(id, object_data);
+                    }
+                }
+                Err(e) => println!("entry error: {:?}", e),
+            }
+        }
+        println!("Parsed {} twotech object files", twotech_objects.len());
+        fs::write(TWOTECH_OBJECT_DATA_FILE, serde_json::to_string(&twotech_objects)?)?;
+        twotech_objects
+    };
 
     // Prepare ingredient sets to exclude based on user input
     let ingredient_sets_to_exclude = args.without_ingredients
@@ -200,10 +231,10 @@ fn main() -> Result<()> {
                     if ingredient.parse::<i32>().is_ok() {
                         Some(ingredient)
                     } else {
-                        objects
+                        initial_twotech_objects
                         .iter()
-                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                        .map(|o| o.id.clone())
+                        .find(|(_, o)| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                        .map(|(_, o)| o.id.clone())
                         .flatten()
                     }
                 })
@@ -226,10 +257,10 @@ fn main() -> Result<()> {
                     if ingredient.parse::<i32>().is_ok() {
                         Some(ingredient)
                     } else {
-                        objects
+                        initial_twotech_objects
                         .iter()
-                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                        .map(|o| o.id.clone())
+                        .find(|(_, o)| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                        .map(|(_, o)| o.id.clone())
                         .flatten()
                     }
                 })
@@ -250,8 +281,8 @@ fn main() -> Result<()> {
         .unwrap_or(F32Range(RangeInclusive::new(f32::MIN, f32::MAX)))
         .0;
 
-    let mut objects = objects.iter()
-        .filter(|obj| {
+    let mut twotech_objects = initial_twotech_objects.iter()
+        .filter(|(_, obj)| {
             obj.craftable.unwrap_or(false)
             // Specific type of clothing
             && (clothing_to_match.is_empty() ||
@@ -306,12 +337,12 @@ fn main() -> Result<()> {
             // object isn't marked as removed
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
-        .collect::<Vec<_>>();
+        .collect::<HashMap<_,_>>();
 
     // Filter for objects that contain any set of other object IDs in its recipe (recursively)
     if let Some(ingredient_sets_to_find) = ingredient_sets_to_find {
-        objects = objects.into_iter()
-            .filter(|&obj| {
+        twotech_objects = twotech_objects.into_iter()
+            .filter(|&(_, obj)| {
                 // Instead of just looking for the one target ID, we need to look for the all the values in each set.
                 // If any set has all its values matched, we have a match!
                 let mut found_match = false;
@@ -320,7 +351,7 @@ fn main() -> Result<()> {
                     let ingredient_set_matches = !ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_ingredient(obj, i.as_str(), &objects_hashmap))
+                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_twotech_objects))
                         .collect::<Vec<_>>()
                         .contains(&None);
 
@@ -332,14 +363,14 @@ fn main() -> Result<()> {
                 }
                 found_match
             })
-            .collect::<Vec<_>>();
+            .collect::<HashMap<_,_>>();
     }
 
     // Filter for objects that DO NOT contain any set of other object IDs in its recipe (recursively)
     // Item must not include ANY of these sets of ingredients in its recipe tree
     if let Some(ingredient_sets_to_exclude) = ingredient_sets_to_exclude {
-        objects = objects.into_iter()
-            .filter(|obj| {
+        twotech_objects = twotech_objects.into_iter()
+            .filter(|(_, obj)| {
                 let mut an_ingredient_set_matches = false;
                 // If any ingredient set is present, we've found a match
                 for ingredient_set in &ingredient_sets_to_exclude {
@@ -347,7 +378,7 @@ fn main() -> Result<()> {
                     let missing_an_ingredient = ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_ingredient(obj, i.as_str(), &objects_hashmap))
+                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_twotech_objects))
                         .collect::<Vec<_>>()
                         .contains(&None);
                     if !missing_an_ingredient {
@@ -358,17 +389,21 @@ fn main() -> Result<()> {
                 // We only want to keep objects that don't contain any of the ingredient sets in the query
                 !an_ingredient_set_matches
             })
-            .collect::<Vec<_>>();
+            .collect::<HashMap<_,_>>();
     }
 
     // Finally, sort the objects by their name, since it's the most human-friendly ordering
-    objects.sort_by_key(|k| k.name.clone());
+    let twotech_objects = twotech_objects
+        .into_values()
+        .filter(|v| { v.name.is_some() })
+        .map(|v| (v.name.clone().unwrap(), v))
+        .collect::<HashMap<_,_>>();
 
     if args.wiki_table_output {
         let wiki_output_data =
-        objects
+        twotech_objects
             .iter()
-            .map(|obj| {
+            .map(|(_, obj)| {
                 _wiki_format_line_food(obj)
             })
             .collect::<Vec<_>>()
@@ -376,10 +411,10 @@ fn main() -> Result<()> {
         std::fs::write(&args.output_file, wiki_output_data)?;
     } else {
         // Serialize the object list to JSON and save to the output file location
-        let objects_as_string = serde_json::to_string(&objects)?;
+        let objects_as_string = serde_json::to_string(&twotech_objects)?;
         std::fs::write(&args.output_file, objects_as_string)?;
     }
-    println!("Wrote {} matching objects' data to output file at {}", objects.len(), args.output_file);
+    println!("Wrote {} matching objects' data to output file at {}", twotech_objects.len(), args.output_file);
     Ok(())
 }
 
@@ -416,7 +451,7 @@ fn find_target_ingredient<'a>(root_obj: &'a TwoTechObject, target_id: &str, obje
     stack.push(root_obj);
     // println!("Searching for ({:>5}, {}) in ({:>5}, {})",
     //     target_id,
-    //     object_database.get(target_id).map_or("", |o| o.name.as_ref().map(|s| s.as_str()).unwrap_or("")),
+    //     object_database.get(target_id).map_or("", |_, o| o.name.as_ref().map(|s| s.as_str()).unwrap_or("")),
     //     root_obj.id.as_ref().map_or("", |s| s.as_str()),
     //     root_obj.name.as_ref().map_or("", |s| s.as_str()),
     // );

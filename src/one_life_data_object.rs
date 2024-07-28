@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
 use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BlocksWalkingData {
     pub blocksWalking: bool,
     pub leftBlockingRadius: Option<i32>,
@@ -62,7 +63,7 @@ impl FromStr for BlocksWalkingData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MapChanceData {
     // line looks something like this: mapChance=0.000000#biomes_0,1,2,3
     pub mapChance: f32,
@@ -112,7 +113,7 @@ impl FromStr for MapChanceData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PersonData {
     pub person: i8,
     pub noSpawn: Option<bool>,
@@ -157,7 +158,7 @@ impl FromStr for PersonData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PermanentData {
     pub permanent: bool,
     pub minPickupAge: Option<i32>,
@@ -203,7 +204,7 @@ impl FromStr for PermanentData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContainSizeData {
     pub containSize: f32,
     pub vertSlotRot: Option<f32>,
@@ -257,7 +258,7 @@ impl FromStr for ContainSizeData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ClothingData {
     pub clothing: ClothingType,
 }
@@ -278,7 +279,7 @@ impl FromStr for ClothingData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ClothingType {
     Bottom,
     Head,
@@ -323,7 +324,7 @@ impl FromStr for ClothingType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SoundsData {
     pub data: String,
 }
@@ -344,7 +345,7 @@ impl FromStr for SoundsData {
     }
 }
 
-// #[derive(Clone, Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 // pub struct SoundsData {
 //     pub creationSound: SoundDataVec,
 //     pub usingSound: SoundDataVec,
@@ -382,7 +383,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-// #[derive(Clone, Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 // pub struct SoundData {
 //     pub id: i32,
 //     pub volume: f64
@@ -411,7 +412,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-// #[derive(Clone, Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 // pub struct SoundDataVec(pub Vec<SoundData>);
 
 // impl ToString for SoundDataVec {
@@ -450,7 +451,7 @@ impl FromStr for SoundsData {
 //     }
 // }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NumSlotsData {
     pub numSlots: i32,
     pub timeStretch: Option<f32>,
@@ -495,7 +496,7 @@ impl FromStr for NumSlotsData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ColorData {
     pub red: f32,
     pub green: f32,
@@ -526,7 +527,7 @@ impl FromStr for ColorData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpriteData {
     pub spriteID: i32,
     pub pos: DoublePair,
@@ -665,7 +666,7 @@ impl FromStr for SpriteData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DoublePair(pub f64, pub f64);
 
 impl ToString for DoublePair {
@@ -683,7 +684,7 @@ impl FromStr for DoublePair {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct I32Pair(pub i32, pub i32);
 
 impl ToString for I32Pair {
@@ -701,7 +702,7 @@ impl FromStr for I32Pair {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InvisHoldingData {
     pub invisHolding: bool,
     pub invisWorn: i32,
@@ -748,7 +749,7 @@ impl FromStr for InvisHoldingData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NumUsesData {
     pub numUses: i32,
     pub useChance: Option<f32>,
@@ -788,7 +789,7 @@ impl FromStr for NumUsesData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SlotPosData {
     pub slotPos: DoublePair,
     pub vert: Option<i32>,
@@ -840,7 +841,7 @@ impl FromStr for SlotPosData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OneLifeDataObject {
     pub id: i32,
     pub name: String,

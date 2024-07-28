@@ -19,3 +19,6 @@ Cargo.lock
 
 # The default output file used by the program
 output.json
+
+#Intermediate files for storing previously parsed OneLifeData7 and twotech data
+/intermediate-files
