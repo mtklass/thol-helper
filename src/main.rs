@@ -324,14 +324,7 @@ fn main() -> Result<()> {
         objects
             .iter()
             .map(|obj| {
-                format!("|-
-|{{{{Card|{}}}}}
-|{:1.}%
-|{}",
-                    obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
-                    obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
-                    obj.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string())
-                )
+                _wiki_format_line__food(obj)
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -345,50 +338,31 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[derive(Clone, Debug)]
-pub struct I32Range(RangeInclusive<i32>);
 
-impl FromStr for I32Range {
-    type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split("..").collect();
-        match parts.len() {
-            1 => {
-                let start: i32 = parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))?;
-                Ok(I32Range(start..=start))
-            },
-            2 => {
-                let start: i32 = if parts[0].is_empty() { 0 } else { parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
-                let end: i32 = if parts[1].is_empty() { i32::MAX } else { parts[1].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
-                Ok(I32Range(start..=end))
-            },
-            _ => Err(anyhow!("Invalid range format")),
-        }
-    }
+fn _wiki_format_line__food(obj: &Object) -> String {
+    let foodValue = obj.foodValue.clone().unwrap_or(vec![0,0]);
+    format!("|-
+|{{{{Card|{}}}}}
+|{}
+|{}
+|{}",
+        obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
+        foodValue[0].to_string(),
+        foodValue[1].to_string(),
+        foodValue.iter().sum::<i32>()
+    )
 }
 
-#[derive(Clone, Debug)]
-pub struct F32Range(RangeInclusive<f32>);
-
-impl FromStr for F32Range {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split("..").collect();
-        match parts.len() {
-            1 => {
-                let start: f32 = parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))?;
-                Ok(F32Range(start..=start))
-            },
-            2 => {
-                let start: f32 = if parts[0].is_empty() { 0.0 } else { parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
-                let end: f32 = if parts[1].is_empty() { f32::MAX } else { parts[1].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
-                Ok(F32Range(start..=end))
-            },
-            _ => Err(anyhow!("Invalid range format")),
-        }
-    }
+fn _wiki_format_line__clothing_with_slots(obj: &Object) -> String {
+    format!("|-
+|{{{{Card|{}}}}}
+|{:1.}%
+|{}",
+        obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
+        obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
+        obj.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string())
+    )
 }
 
 fn find_target_id<'a>(root_obj: &'a Object, target_id: &str, object_database: &'a HashMap<String, Object>) -> Option<&'a Object> {
@@ -505,4 +479,50 @@ fn pause(message: Option<String>) -> bool {
         }
     }
     return false;
+}
+
+#[derive(Clone, Debug)]
+pub struct I32Range(RangeInclusive<i32>);
+
+impl FromStr for I32Range {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split("..").collect();
+        match parts.len() {
+            1 => {
+                let start: i32 = parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))?;
+                Ok(I32Range(start..=start))
+            },
+            2 => {
+                let start: i32 = if parts[0].is_empty() { 0 } else { parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
+                let end: i32 = if parts[1].is_empty() { i32::MAX } else { parts[1].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
+                Ok(I32Range(start..=end))
+            },
+            _ => Err(anyhow!("Invalid range format")),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct F32Range(RangeInclusive<f32>);
+
+impl FromStr for F32Range {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split("..").collect();
+        match parts.len() {
+            1 => {
+                let start: f32 = parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))?;
+                Ok(F32Range(start..=start))
+            },
+            2 => {
+                let start: f32 = if parts[0].is_empty() { 0.0 } else { parts[0].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
+                let end: f32 = if parts[1].is_empty() { f32::MAX } else { parts[1].parse().map_err(|_| "Invalid number").map_err(|e| anyhow!(e))? };
+                Ok(F32Range(start..=end))
+            },
+            _ => Err(anyhow!("Invalid range format")),
+        }
+    }
 }
