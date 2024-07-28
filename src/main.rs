@@ -236,6 +236,28 @@ fn main() -> Result<()> {
                     food_value_filter.contains(&f.into_iter().sum())
                 })
             )
+            // Immediate food supplied by the item
+            && (
+                args.immediate_food_value.is_none() ||
+                obj.foodValue.as_ref().is_some_and(|f| {
+                    let food_value_filter = args.immediate_food_value
+                        .clone()
+                        .unwrap()
+                        .0;
+                    food_value_filter.contains(&f.into_iter().sum())
+                })
+            )
+            // Bonus food supplied by the item
+            && (
+                args.bonus_food_value.is_none() ||
+                obj.foodValue.as_ref().is_some_and(|f| {
+                    let food_value_filter = args.bonus_food_value
+                        .clone()
+                        .unwrap()
+                        .0;
+                    food_value_filter.contains(&f.into_iter().sum())
+                })
+            )
             // object isn't marked as removed
             && !&obj.name.clone().unwrap_or_default().contains("removed")
         })
