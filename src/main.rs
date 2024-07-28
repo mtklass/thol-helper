@@ -1,7 +1,7 @@
 mod one_life_data_object;
 mod twotech_object;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::io::Read;
 use std::io::Write;
@@ -14,10 +14,11 @@ use std::process;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
-use clap::error::ErrorKind;
 use clap::Parser;
 use glob::glob;
 use one_life_data_object::OneLifeDataObject;
+use serde::Deserialize;
+use serde::Serialize;
 use twotech_object::{ClothingType, TwoTechObject};
 use serde_json::Value;
 
@@ -89,6 +90,18 @@ Specify multiple times for logical OR across specified lists",
     without_ingredients: Option<Vec<IngredientSet>>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct GameObject {
+    pub one_life_game_data: Option<OneLifeDataObject>,
+    pub twotech_data: Option<TwoTechObject>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SharedGameObject {
+    pub one_life_game_data: OneLifeDataObject,
+    pub twotech_data: TwoTechObject,
+}
+
 #[derive(Debug, Clone)]
 pub struct IngredientSet(Vec<String>);
 
@@ -129,12 +142,12 @@ fn main() -> Result<()> {
         fs::remove_file(ONELIFEDATA7_OBJECT_DATA_FILE).ok();
         fs::remove_file(TWOTECH_OBJECT_DATA_FILE).ok();
     }
-    // Try to load intermediate-files data into OneLifeData7 object data HashMap
+    // Try to load intermediate-files data into OneLifeData7 object data BTreeMap
     // If the file exists but doesn't make sense, delete it
     // If it didn't make sense or it didn't exist, recreate data and save to intermediate-files/OneLifeData7_Objects.json
     // If it parsed, great!
     let initial_one_life_game_objects = if let Ok(one_life_file_data) = fs::read_to_string(ONELIFEDATA7_OBJECT_DATA_FILE) {
-        serde_json::from_str::<HashMap<String, OneLifeDataObject>>(one_life_file_data.as_str())?
+        serde_json::from_str::<BTreeMap<String, OneLifeDataObject>>(one_life_file_data.as_str())?
     } else {
         println!("Intermediate file for OneLifeData7 object data is not present, we must regenerate it from OneLifeData7 data.");
         if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
@@ -147,7 +160,7 @@ fn main() -> Result<()> {
         }
         let one_life_object_directory = one_life_data_directory + "objects/";
         let one_life_object_dir_contents = fs::read_dir(one_life_object_directory)?;
-        let mut one_life_game_objects = HashMap::new();
+        let mut one_life_game_objects = BTreeMap::new();
         for one_life_data_entry in one_life_object_dir_contents {
             if let Ok(one_life_data_entry) = one_life_data_entry {
                 // Check if the entry is a file and matches the pattern
@@ -179,13 +192,13 @@ fn main() -> Result<()> {
                 }
             }
         }
-        println!("Parsed {} OneLifeData7 object files", one_life_game_objects.len());
+        println!("Parsed {} OneLifeData7 objects", one_life_game_objects.len());
         fs::write(ONELIFEDATA7_OBJECT_DATA_FILE, serde_json::to_string(&one_life_game_objects)?)?;
         one_life_game_objects
     };
 
     let initial_twotech_objects = if let Ok(twotech_file_data) = fs::read_to_string(TWOTECH_OBJECT_DATA_FILE) {
-        serde_json::from_str::<HashMap<String, TwoTechObject>>(twotech_file_data.as_str())?
+        serde_json::from_str::<BTreeMap<String, TwoTechObject>>(twotech_file_data.as_str())?
     } else {
         println!("Intermediate file for twotech object data is not present, we must regenerate it from twotech data.");
         if let Err(twotech_dir_err) = fs::read_dir(&args.twotech_data_directory) {
@@ -198,7 +211,7 @@ fn main() -> Result<()> {
         }
         let twotech_object_directory = twotech_data_directory.clone() + "public/static/objects/";
 
-        let mut twotech_objects = HashMap::new();
+        let mut twotech_objects = BTreeMap::new();
         for entry in glob(&format!("./{twotech_object_directory}/*.json")).expect("Failed to read glob pattern") {
             match entry {
                 Ok(path) => {
@@ -214,10 +227,36 @@ fn main() -> Result<()> {
                 Err(e) => println!("entry error: {:?}", e),
             }
         }
-        println!("Parsed {} twotech object files", twotech_objects.len());
+        println!("Parsed {} twotech objects", twotech_objects.len());
         fs::write(TWOTECH_OBJECT_DATA_FILE, serde_json::to_string(&twotech_objects)?)?;
         twotech_objects
     };
+
+    let mut initial_shared_objects = BTreeMap::new();
+    for (key, onelifedata_obj) in &initial_one_life_game_objects {
+        if let Some(twotech_obj) = initial_twotech_objects.get(key) {
+            initial_shared_objects.insert(key.to_owned(), SharedGameObject {
+                one_life_game_data: onelifedata_obj.to_owned(),
+                twotech_data: twotech_obj.to_owned(),
+            });
+        } else {
+            // println!("OneLifeData7 contained ID {}, name {}, but twotech did not!", onelifedata_obj.id, onelifedata_obj.name);
+        }
+    }
+    for (key, twotech_obj) in &initial_twotech_objects {
+        if !initial_shared_objects.contains_key(key) {
+            if let Some(onelifedata_obj) = initial_one_life_game_objects.get(key) {
+                initial_shared_objects.insert(key.to_owned(), SharedGameObject {
+                    one_life_game_data: onelifedata_obj.to_owned(),
+                    twotech_data: twotech_obj.to_owned(),
+                });
+            } else {
+                // println!("OneLifeData7 contained ID {}, name {}, but twotech did not!", twotech_obj.id.as_ref().unwrap_or(&"ERR: NO ID".to_string()), twotech_obj.name.as_ref().unwrap_or(&"ERR: NO NAME".to_string()));
+            }
+        }
+    }
+
+    let mut shared_objects = initial_shared_objects.clone();
 
     // Prepare ingredient sets to exclude based on user input
     let ingredient_sets_to_exclude = args.without_ingredients
@@ -231,10 +270,11 @@ fn main() -> Result<()> {
                     if ingredient.parse::<i32>().is_ok() {
                         Some(ingredient)
                     } else {
-                        initial_twotech_objects
+                        initial_shared_objects
                         .iter()
-                        .find(|(_, o)| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                        .map(|(_, o)| o.id.clone())
+                        .map(|(_, obj)| &obj.twotech_data)
+                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                        .map(|o| o.id.clone())
                         .flatten()
                     }
                 })
@@ -257,10 +297,11 @@ fn main() -> Result<()> {
                     if ingredient.parse::<i32>().is_ok() {
                         Some(ingredient)
                     } else {
-                        initial_twotech_objects
+                        initial_shared_objects
                         .iter()
-                        .find(|(_, o)| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                        .map(|(_, o)| o.id.clone())
+                        .map(|(_, obj)| &obj.twotech_data)
+                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
+                        .map(|o| o.id.clone())
                         .flatten()
                     }
                 })
@@ -281,30 +322,32 @@ fn main() -> Result<()> {
         .unwrap_or(F32Range(RangeInclusive::new(f32::MIN, f32::MAX)))
         .0;
 
-    let mut twotech_objects = initial_twotech_objects.iter()
-        .filter(|(_, obj)| {
-            obj.craftable.unwrap_or(false)
+    shared_objects = shared_objects.into_iter()
+        .filter(|(_, shared_obj)| {
+            let onelifedata_obj = &shared_obj.one_life_game_data;
+            let twotech_obj = &shared_obj.twotech_data;
+            twotech_obj.craftable.unwrap_or(false)
             // Specific type of clothing
             && (clothing_to_match.is_empty() ||
-                (obj.clothing.is_some()
-                    && clothing_to_match.contains(obj.clothing.as_ref().unwrap())
+                (twotech_obj.clothing.is_some()
+                    && clothing_to_match.contains(twotech_obj.clothing.as_ref().unwrap())
                 )
             )
             // Is over minimum pickup age filter (0 if not specified)
-            && obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
+            && twotech_obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
             // Number of slots for item falls within specified range (default is all positive values)
-            && num_slots_filter.contains(&obj.numSlots.unwrap_or(0))
+            && num_slots_filter.contains(&twotech_obj.numSlots.unwrap_or(0))
             // slotSize is for item falls within specified range (default is all values allowed)
-            && slot_size_filter.contains(&obj.slotSize.unwrap_or(f32::MIN))
+            && slot_size_filter.contains(&twotech_obj.slotSize.unwrap_or(f32::MIN))
             // User either wants to filter for items being food or not food, or args.is_food will be None
             && (
                 args.is_food.is_none() ||
-                obj.foodValue.as_ref().is_some_and(|f| f.len() > 0) == args.is_food.unwrap()
+                twotech_obj.foodValue.as_ref().is_some_and(|f| f.len() > 0) == args.is_food.unwrap()
             )
             // Total food supplied by the item, including immediate food and bonus
             && (
                 args.total_food_value.is_none() ||
-                obj.foodValue.as_ref().is_some_and(|f| {
+                twotech_obj.foodValue.as_ref().is_some_and(|f| {
                     let food_value_filter = args.total_food_value
                         .clone()
                         .unwrap() // Okay to do because we're in the else if an is_none()
@@ -315,7 +358,7 @@ fn main() -> Result<()> {
             // Immediate food supplied by the item
             && (
                 args.immediate_food_value.is_none() ||
-                obj.foodValue.as_ref().is_some_and(|f| {
+                twotech_obj.foodValue.as_ref().is_some_and(|f| {
                     let food_value_filter = args.immediate_food_value
                         .clone()
                         .unwrap()
@@ -326,7 +369,7 @@ fn main() -> Result<()> {
             // Bonus food supplied by the item
             && (
                 args.bonus_food_value.is_none() ||
-                obj.foodValue.as_ref().is_some_and(|f| {
+                twotech_obj.foodValue.as_ref().is_some_and(|f| {
                     let food_value_filter = args.bonus_food_value
                         .clone()
                         .unwrap()
@@ -335,14 +378,16 @@ fn main() -> Result<()> {
                 })
             )
             // object isn't marked as removed
-            && !&obj.name.clone().unwrap_or_default().contains("removed")
+            && !&twotech_obj.name.clone().unwrap_or_default().contains("removed")
+            // Don't actually do this filter, but it shows using OneLifeData7 data to filter
+            // && onelifedata_obj.containable.is_some_and(|v| v)
         })
-        .collect::<HashMap<_,_>>();
+        .collect::<BTreeMap<_,_>>();
 
     // Filter for objects that contain any set of other object IDs in its recipe (recursively)
     if let Some(ingredient_sets_to_find) = ingredient_sets_to_find {
-        twotech_objects = twotech_objects.into_iter()
-            .filter(|&(_, obj)| {
+        shared_objects = shared_objects.into_iter()
+            .filter(|(_, obj)| {
                 // Instead of just looking for the one target ID, we need to look for the all the values in each set.
                 // If any set has all its values matched, we have a match!
                 let mut found_match = false;
@@ -351,7 +396,7 @@ fn main() -> Result<()> {
                     let ingredient_set_matches = !ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_twotech_objects))
+                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_shared_objects))
                         .collect::<Vec<_>>()
                         .contains(&None);
 
@@ -363,13 +408,13 @@ fn main() -> Result<()> {
                 }
                 found_match
             })
-            .collect::<HashMap<_,_>>();
+            .collect::<BTreeMap<_,_>>();
     }
 
     // Filter for objects that DO NOT contain any set of other object IDs in its recipe (recursively)
     // Item must not include ANY of these sets of ingredients in its recipe tree
     if let Some(ingredient_sets_to_exclude) = ingredient_sets_to_exclude {
-        twotech_objects = twotech_objects.into_iter()
+        shared_objects = shared_objects.into_iter()
             .filter(|(_, obj)| {
                 let mut an_ingredient_set_matches = false;
                 // If any ingredient set is present, we've found a match
@@ -378,7 +423,7 @@ fn main() -> Result<()> {
                     let missing_an_ingredient = ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_twotech_objects))
+                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_shared_objects))
                         .collect::<Vec<_>>()
                         .contains(&None);
                     if !missing_an_ingredient {
@@ -389,19 +434,19 @@ fn main() -> Result<()> {
                 // We only want to keep objects that don't contain any of the ingredient sets in the query
                 !an_ingredient_set_matches
             })
-            .collect::<HashMap<_,_>>();
+            .collect::<BTreeMap<_,_>>();
     }
 
     // Finally, sort the objects by their name, since it's the most human-friendly ordering
-    let twotech_objects = twotech_objects
+    shared_objects = shared_objects
         .into_values()
-        .filter(|v| { v.name.is_some() })
-        .map(|v| (v.name.clone().unwrap(), v))
-        .collect::<HashMap<_,_>>();
+        .filter(|v| { v.twotech_data.name.is_some() })
+        .map(|v| (v.twotech_data.name.clone().unwrap(), v))
+        .collect::<BTreeMap<_,_>>();
 
     if args.wiki_table_output {
         let wiki_output_data =
-        twotech_objects
+        shared_objects
             .iter()
             .map(|(_, obj)| {
                 _wiki_format_line_food(obj)
@@ -411,41 +456,41 @@ fn main() -> Result<()> {
         std::fs::write(&args.output_file, wiki_output_data)?;
     } else {
         // Serialize the object list to JSON and save to the output file location
-        let objects_as_string = serde_json::to_string(&twotech_objects)?;
+        let objects_as_string = serde_json::to_string(&shared_objects)?;
         std::fs::write(&args.output_file, objects_as_string)?;
     }
-    println!("Wrote {} matching objects' data to output file at {}", twotech_objects.len(), args.output_file);
+    println!("Wrote {} matching objects' data to output file at {}", shared_objects.len(), args.output_file);
     Ok(())
 }
 
 
 
-fn _wiki_format_line_food(obj: &TwoTechObject) -> String {
-    let foodValue = obj.foodValue.clone().unwrap_or(vec![0,0]);
+fn _wiki_format_line_food(obj: &SharedGameObject) -> String {
+    let food_value = obj.twotech_data.foodValue.clone().unwrap_or(vec![0,0]);
     format!("|-
 |{{{{Card|{}}}}}
 |{}
 |{}
 |{}",
-        obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
-        foodValue[0].to_string(),
-        foodValue[1].to_string(),
-        foodValue.iter().sum::<i32>()
+        obj.twotech_data.name.clone().unwrap_or("ERROR: No name!".to_string()),
+        food_value[0].to_string(),
+        food_value[1].to_string(),
+        food_value.iter().sum::<i32>()
     )
 }
 
-fn _wiki_format_line_clothing_with_slots(obj: &TwoTechObject) -> String {
+fn _wiki_format_line_clothing_with_slots(obj: &SharedGameObject) -> String {
     format!("|-
 |{{{{Card|{}}}}}
 |{:1.}%
 |{}",
-        obj.name.clone().unwrap_or("ERROR: No name!".to_string()),
-        obj.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
-        obj.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string())
+        obj.twotech_data.name.clone().unwrap_or("ERROR: No name!".to_string()),
+        obj.twotech_data.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
+        obj.twotech_data.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string())
     )
 }
 
-fn find_target_ingredient<'a>(root_obj: &'a TwoTechObject, target_id: &str, object_database: &'a HashMap<String, TwoTechObject>) -> Option<&'a TwoTechObject> {
+fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, object_database: &'a BTreeMap<String, SharedGameObject>) -> Option<&'a SharedGameObject> {
     let mut stack = Vec::new();
     let mut visited = HashSet::new();
     stack.push(root_obj);
@@ -457,7 +502,7 @@ fn find_target_ingredient<'a>(root_obj: &'a TwoTechObject, target_id: &str, obje
     // );
     while let Some(obj) = stack.pop() {
         // If object has no ID or has already been visited, skip it
-        let obj_id = obj.id.clone().unwrap_or_default();
+        let obj_id = obj.twotech_data.id.clone().unwrap_or_default();
         if obj_id.is_empty() || visited.contains(&obj_id) {
             continue;
         }
@@ -468,7 +513,7 @@ fn find_target_ingredient<'a>(root_obj: &'a TwoTechObject, target_id: &str, obje
         // println!("New Total: {} after adding object ID to visited: {obj_id}", visited.len());
         visited.insert(obj_id);
 
-        let obj_recipe = match &obj.recipe {
+        let obj_recipe = match &obj.twotech_data.recipe {
             Some(recipe) => recipe,
             None => continue,
         };
@@ -499,7 +544,7 @@ fn find_target_ingredient<'a>(root_obj: &'a TwoTechObject, target_id: &str, obje
         .filter_map(|ingredient| object_database.get(&ingredient))
         .for_each(|recipe_ingredient_object| stack.push(recipe_ingredient_object));
 
-        if obj.recipe.as_ref().is_some_and(|r|
+        if obj.twotech_data.recipe.as_ref().is_some_and(|r|
             r.ingredients.as_ref()
             .map(|ingredients| HashSet::<&String>::from_iter(ingredients.iter()))
             .is_some_and(|ingredients| {
