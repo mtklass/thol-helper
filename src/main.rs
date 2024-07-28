@@ -1,7 +1,9 @@
-mod object;
+mod one_life_data_object;
+mod twotech_object;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io::Read;
 use std::io::Write;
 use std::ops::Div;
 use std::ops::Mul;
@@ -14,7 +16,8 @@ use std::str::FromStr;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
-use object::{ClothingType, Object};
+use one_life_data_object::OneLifeDataObject;
+use twotech_object::{ClothingType, TwoTechObject};
 use serde_json::Value;
 
 const DEFAULT_OUTOUT_FILENAME: &str = "output.json";
@@ -26,8 +29,8 @@ const DEFAULT_OUTOUT_FILENAME: &str = "output.json";
     about = r#"Filter twotech's object data for objects that interest you."#
 )]
 pub struct Args {
-    // #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
-    // one_life_data_directory: String,
+    #[arg(short = 'd', long, default_value = "../../TwoHoursOneLife/OneLifeData7")]
+    one_life_data_directory: String,
     #[arg(
         short = 'o',
         long,
@@ -104,10 +107,52 @@ fn main() -> Result<()> {
     if args.clothing.is_some() {
         clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
     }
-    // if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
-    //     println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
-    //     return Err(anyhow!(onelife_dir_err));
-    // }
+    if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
+        println!("OneLifeData7 directory ({}) could not be opened, please provide different path via the -d option.", args.one_life_data_directory);
+        return Err(anyhow!(onelife_dir_err));
+    }
+    let mut one_life_data_directory = args.one_life_data_directory;
+    if !one_life_data_directory.ends_with("/") {
+        one_life_data_directory.push('/');
+    }
+    let one_life_object_directory = one_life_data_directory + "objects/";
+    let one_life_object_dir_contents = fs::read_dir(one_life_object_directory)?;
+    let mut one_life_game_objects = HashMap::new();
+    for one_life_data_entry in one_life_object_dir_contents {
+        if let Ok(one_life_data_entry) = one_life_data_entry {
+            // Check if the entry is a file and matches the pattern
+            if let Ok(metadata) = one_life_data_entry.metadata() {
+                if metadata.is_file() {
+                    let file_name = one_life_data_entry.file_name();
+                    let file_name = file_name.to_string_lossy();
+
+                    if let Some(captures) = regex::Regex::new(r"^(\d+)\.txt$").unwrap().captures(&file_name) {
+                        // For debugging, only look at file we care about
+                        // if captures.get(1).unwrap().as_str() != "14492" {
+                        //     continue;
+                        // }
+                        // println!("Parsing file {file_name}");
+                        // Read the file into a string
+                        let object_id = match captures.get(1) {
+                            Some(id) => id.as_str(),
+                            None => continue,
+                        };
+                        let mut file = fs::File::open(one_life_data_entry.path()).unwrap();
+                        let mut contents = String::new();
+                        file.read_to_string(&mut contents).unwrap();
+                        if let Ok(object) = OneLifeDataObject::from_str(&contents) {
+                            one_life_game_objects.insert(object_id.to_string(), object);
+                        } else {
+                            println!("Error converting file contents to object: {}", one_life_data_entry.path().to_string_lossy());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    println!("Parsed {} game object files", one_life_game_objects.len());
+    return Ok(());
+
     if let Err(twotech_dir_err) = fs::read_dir(&args.twotech_data_directory) {
         println!("TwoTech directory ({}) could not be opened, please provide different path via the -t option.", args.twotech_data_directory);
         return Err(anyhow!(twotech_dir_err));
@@ -129,7 +174,7 @@ fn main() -> Result<()> {
 
                 let json_string = serde_json::to_string(&json)?;
 
-                let object_data: Object = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
+                let object_data: TwoTechObject = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
                 objects.push(object_data);
             }
             Err(e) => println!("entry error: {:?}", e),
@@ -141,7 +186,7 @@ fn main() -> Result<()> {
     .iter()
     .filter(|&o| o.id.is_some())
     .map(|o| (o.id.clone().unwrap(), o.to_owned()))
-    .collect::<HashMap<String, Object>>();
+    .collect::<HashMap<String, TwoTechObject>>();
 
     // Prepare ingredient sets to exclude based on user input
     let ingredient_sets_to_exclude = args.without_ingredients
@@ -275,7 +320,7 @@ fn main() -> Result<()> {
                     let ingredient_set_matches = !ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_id(obj, i.as_str(), &objects_hashmap))
+                        .map(|i| find_target_ingredient(obj, i.as_str(), &objects_hashmap))
                         .collect::<Vec<_>>()
                         .contains(&None);
 
@@ -302,7 +347,7 @@ fn main() -> Result<()> {
                     let missing_an_ingredient = ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_id(obj, i.as_str(), &objects_hashmap))
+                        .map(|i| find_target_ingredient(obj, i.as_str(), &objects_hashmap))
                         .collect::<Vec<_>>()
                         .contains(&None);
                     if !missing_an_ingredient {
@@ -324,7 +369,7 @@ fn main() -> Result<()> {
         objects
             .iter()
             .map(|obj| {
-                _wiki_format_line__food(obj)
+                _wiki_format_line_food(obj)
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -340,7 +385,7 @@ fn main() -> Result<()> {
 
 
 
-fn _wiki_format_line__food(obj: &Object) -> String {
+fn _wiki_format_line_food(obj: &TwoTechObject) -> String {
     let foodValue = obj.foodValue.clone().unwrap_or(vec![0,0]);
     format!("|-
 |{{{{Card|{}}}}}
@@ -354,7 +399,7 @@ fn _wiki_format_line__food(obj: &Object) -> String {
     )
 }
 
-fn _wiki_format_line__clothing_with_slots(obj: &Object) -> String {
+fn _wiki_format_line_clothing_with_slots(obj: &TwoTechObject) -> String {
     format!("|-
 |{{{{Card|{}}}}}
 |{:1.}%
@@ -365,7 +410,7 @@ fn _wiki_format_line__clothing_with_slots(obj: &Object) -> String {
     )
 }
 
-fn find_target_id<'a>(root_obj: &'a Object, target_id: &str, object_database: &'a HashMap<String, Object>) -> Option<&'a Object> {
+fn find_target_ingredient<'a>(root_obj: &'a TwoTechObject, target_id: &str, object_database: &'a HashMap<String, TwoTechObject>) -> Option<&'a TwoTechObject> {
     let mut stack = Vec::new();
     let mut visited = HashSet::new();
     stack.push(root_obj);

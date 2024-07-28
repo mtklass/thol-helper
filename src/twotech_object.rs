@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::str::FromStr;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Object {
+pub struct TwoTechObject {
     // TODO: Make id not optional. That should really be required, shouldn't it?
     pub id: Option<String>,
     pub recipe: Option<ObjectRecipe>,
