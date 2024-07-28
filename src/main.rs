@@ -55,6 +55,12 @@ pub struct Args {
     #[arg(long)]
     // If is_food is None, no filter. If Some(), either filter for food (true), or non-food (false)
     is_food: Option<bool>,
+    #[arg(long)]
+    immediate_food_value: Option<I32Range>,
+    #[arg(long)]
+    bonus_food_value: Option<I32Range>,
+    #[arg(long)]
+    total_food_value: Option<I32Range>,
     #[arg(
         long,
         help = "Filter for specific ingredient(s) being present in object's recursive recipe trees (comma-separated, can use object name or ID).
@@ -214,9 +220,21 @@ fn main() -> Result<()> {
             && num_slots_filter.contains(&obj.numSlots.unwrap_or(0))
             // slotSize is for item falls within specified range (default is all values allowed)
             && slot_size_filter.contains(&obj.slotSize.unwrap_or(f32::MIN))
+            // User either wants to filter for items being food or not food, or args.is_food will be None
             && (
                 args.is_food.is_none() ||
-                (obj.foodValue.as_ref().is_some_and(|f| f.len() > 0) == args.is_food.unwrap())
+                obj.foodValue.as_ref().is_some_and(|f| f.len() > 0) == args.is_food.unwrap()
+            )
+            // Total food supplied by the item, including immediate food and bonus
+            && (
+                args.total_food_value.is_none() ||
+                obj.foodValue.as_ref().is_some_and(|f| {
+                    let food_value_filter = args.total_food_value
+                        .clone()
+                        .unwrap() // Okay to do because we're in the else if an is_none()
+                        .0;
+                    food_value_filter.contains(&f.into_iter().sum())
+                })
             )
             // object isn't marked as removed
             && !&obj.name.clone().unwrap_or_default().contains("removed")
@@ -301,6 +319,7 @@ fn main() -> Result<()> {
         let objects_as_string = serde_json::to_string(&objects)?;
         std::fs::write(&args.output_file, objects_as_string)?;
     }
+    println!("Wrote {} matching objects' data to output file at {}", objects.len(), args.output_file);
     Ok(())
 }
 
