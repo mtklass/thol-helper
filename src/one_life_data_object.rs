@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -842,6 +842,46 @@ impl FromStr for SlotPosData {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum SlotStyle {
+    Box,
+    Table,
+    Ground,
+}
+
+impl ToString for SlotStyle {
+    fn to_string(&self) -> String {
+        match self {
+            SlotStyle::Box => "0",
+            SlotStyle::Table => "1",
+            SlotStyle::Ground => "2",
+        }.to_string()
+    }
+}
+
+impl FromStr for SlotStyle {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "0" => Ok(SlotStyle::Box),
+            "b" => Ok(SlotStyle::Box),
+            "box" => Ok(SlotStyle::Box),
+            "1" => Ok(SlotStyle::Table),
+            "t" => Ok(SlotStyle::Table),
+            "table" => Ok(SlotStyle::Table),
+            "2" => Ok(SlotStyle::Ground),
+            "g" => Ok(SlotStyle::Ground),
+            "ground" => Ok(SlotStyle::Ground),
+            _ => Err(anyhow!("Unknown slotStyle value {s}"))
+        }
+    }
+}
+
+fn GetNone<T>() -> Option<T> {
+    None
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OneLifeDataObject {
     pub id: i32,
     pub name: String,
@@ -878,7 +918,8 @@ pub struct OneLifeDataObject {
     pub creationSoundForce: Option<bool>,
     pub numSlots: Option<NumSlotsData>,
     pub slotSize: Option<f32>,
-    pub slotStyle: Option<i32>,
+    #[serde(deserialize_with = "deserialize_slot_style", default = "GetNone")]
+    pub slotStyle: Option<SlotStyle>,
     pub slotsLocked: Option<bool>,
     pub slotsNoSwap: Option<bool>,
     pub slotPosData: Option<Vec<SlotPosData>>,
@@ -1029,8 +1070,8 @@ impl ToString for OneLifeDataObject {
         if let Some(slotSize) = self.slotSize {
             output.push(format!("slotSize={:.6}", slotSize));
         }
-        if let Some(slotStyle) = self.slotStyle {
-            output.push(format!("slotStyle={}", slotStyle));
+        if let Some(slotStyle) = &self.slotStyle {
+            output.push(format!("slotStyle={}", slotStyle.to_string()));
         }
         if let Some(slotsLocked) = self.slotsLocked {
             output.push(format!("slotsLocked={}", slotsLocked.to_i8()));
@@ -1115,8 +1156,25 @@ impl ToString for OneLifeDataObject {
     }
 }
 
+fn deserialize_slot_style<'de, D>(deserializer: D) -> Result<Option<SlotStyle>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::String(s) => s.parse::<SlotStyle>().map(Some).map_err(serde::de::Error::custom),
+        serde_json::Value::Number(n) => Ok(n.to_string().parse::<SlotStyle>().ok()),
+        serde_json::Value::Null => Ok(None),
+        _ => Err(serde::de::Error::custom("Unexpected value")),
+    }
+}
+
 impl FromStr for OneLifeDataObject {
     type Err = anyhow::Error;
+
+    
+// Custom deserializer for moveDistance
+    
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let lines: Vec<&str> = s.trim().split('\n').collect();
@@ -1185,8 +1243,6 @@ impl FromStr for OneLifeDataObject {
             let line_sections = line.split('=').collect::<Vec<_>>();
             let main_variable_name = line_sections[0];
             let main_variable_value = line_sections[1];
-
-            // println!("Parsing variable named {main_variable_name}");
 
             match main_variable_name {
                 "containable" => containable = Some(main_variable_value != "0"),

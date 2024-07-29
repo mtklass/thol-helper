@@ -3,6 +3,7 @@ mod twotech_object;
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::fmt::format;
 use std::io::Read;
 use std::io::Write;
 use std::ops::Div;
@@ -17,6 +18,7 @@ use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
 use one_life_data_object::OneLifeDataObject;
+use one_life_data_object::SlotStyle;
 use serde::Deserialize;
 use serde::Serialize;
 use twotech_object::{ClothingType, TwoTechObject};
@@ -88,6 +90,11 @@ Specify multiple times for logical OR across specified lists",
         value_parser = clap::value_parser!(IngredientSet),
     )]
     without_ingredients: Option<Vec<IngredientSet>>,
+    #[arg(
+        long,
+        help = "0 => Box, 1 => Table, 2 => Ground",
+    )]
+    container_slot_type: Option<Vec<SlotStyle>>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -377,6 +384,10 @@ fn main() -> Result<()> {
                     food_value_filter.contains(&f.into_iter().sum())
                 })
             )
+            && (
+                args.container_slot_type.is_none() ||
+                onelifedata_obj.slotStyle.as_ref().is_some_and(|ss| args.container_slot_type.as_ref().unwrap().contains(&ss))
+            )
             // object isn't marked as removed
             && !&twotech_obj.name.clone().unwrap_or_default().contains("removed")
             // Don't actually do this filter, but it shows using OneLifeData7 data to filter
@@ -463,7 +474,28 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn _wiki_format_card_template_object_id(obj: &SharedGameObject) -> String {
+    let mut output = Vec::new();
+    let id = obj.twotech_data.id.as_ref().unwrap();
+    let name = obj.twotech_data.name.as_ref().unwrap();
+    // if name.contains(" - ") {
+    //     let name_portion = name.split(" - ").collect::<Vec<_>>()[0];
+    //     output.push(format!("| {name_portion} = https://twotech.twohoursonelife.com/{id}"))
+    // }
+    output.push(format!("| {name} = https://twotech.twohoursonelife.com/{id}"));
+    output.join("\n")
+}
 
+fn _wiki_format_line_slot_item(obj: &SharedGameObject) -> String {
+    format!("|-
+|{{{{Card|{}}}}}
+|{}
+|{}",
+        obj.twotech_data.name.clone().unwrap_or("ERROR: No name!".to_string()),
+        obj.twotech_data.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string()),
+        obj.twotech_data.slotSize.map(|n| n.to_string()).unwrap_or("0".to_string()),
+    )
+}
 
 fn _wiki_format_line_food(obj: &SharedGameObject) -> String {
     let food_value = obj.twotech_data.foodValue.clone().unwrap_or(vec![0,0]);
