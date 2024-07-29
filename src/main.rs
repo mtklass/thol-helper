@@ -1,13 +1,11 @@
 mod one_life_data_object;
 mod twotech_object;
+mod wiki_formats;
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::fmt::format;
 use std::io::Read;
 use std::io::Write;
-use std::ops::Div;
-use std::ops::Mul;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::ops::RangeInclusive;
@@ -21,6 +19,8 @@ use one_life_data_object::OneLifeDataObject;
 use one_life_data_object::SlotStyle;
 use serde::Deserialize;
 use serde::Serialize;
+use strum::IntoEnumIterator;
+use twotech_object::MoveType;
 use twotech_object::{ClothingType, TwoTechObject};
 use serde_json::Value;
 
@@ -97,6 +97,11 @@ Specify multiple times for logical OR across specified lists",
         help = "0 => Box, 1 => Table, 2 => Ground",
     )]
     container_slot_type: Option<Vec<SlotStyle>>,
+    #[arg(
+        long,
+        help = "Comma-separated for multiple. 0=>None, 1=>Chase, 2=>Flee, 3=>Random, 4-7=>N,S,E,W"
+    )]
+    move_type: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -123,12 +128,16 @@ impl FromStr for IngredientSet {
 }
 
 fn main() -> Result<()> {
+    const INTERMEDIATE_FILES_DIR: &str = "intermediate-files";
+    const ONELIFEDATA7_OBJECT_DATA_FILE: &str = "intermediate-files/OneLifeData7_Objects.json";
+    const TWOTECH_OBJECT_DATA_FILE: &str = "intermediate-files/twotech_Objects.json";
+
     let args = Args::parse();
     // If the user specified the wiki output option, but didn't specify an output file, the defaul output.json will be misleading.
     // Warn the user and ask them to say yes to continue.
     let mut wiki_output_file_check = true;
     if args.wiki_table_output && args.output_file.as_str() == DEFAULT_OUTOUT_FILENAME {
-        let err_msg = format!("Wiki output selected, but default {DEFAULT_OUTOUT_FILENAME} file still being used. To avoid confusion, perhaps specify a different value with the -o option?");
+        let err_msg = format!("Wiki output selected, but default {DEFAULT_OUTOUT_FILENAME} file still being used+. To avoid confusion, perhaps specify a different value with the -o option?");
         wiki_output_file_check = pause(Some(err_msg));
     }
     if !wiki_output_file_check {
@@ -136,14 +145,40 @@ fn main() -> Result<()> {
     }
     let mut clothing_to_match = Vec::new();
     if args.clothing.is_some() {
-        clothing_to_match = args.clothing.unwrap_or_default().split(",").map(|c| ClothingType::from_str(c).unwrap()).collect::<Vec<_>>();
+        clothing_to_match =
+            args.clothing
+            .unwrap_or_default()
+            .split(",")
+            .map(|c| ClothingType::from_str(c).unwrap())
+            .collect::<Vec<_>>();
     }
-    const INTERMEDIATE_FILES_DIR: &str = "intermediate-files";
+    let mut move_types_to_match = Vec::new();
+    if args.move_type.is_some() {
+        let  move_type_args = args.move_type.unwrap_or_default();
+        let mut move_type_arg_parts = move_type_args.split(",");
+        if move_type_arg_parts.any(|p| p == "all") {
+            move_types_to_match = MoveType::iter().collect();
+        } else {
+            move_types_to_match = move_type_arg_parts
+                .map(|move_type| MoveType::from_str(move_type).expect(&format!("Could not parse argument string into MoveType: {move_type}")))
+                .collect::<Vec<_>>();
+        }
+    }
+    // numSlots filter. Default is all values > 0
+    let num_slots_filter = args.num_slots
+        .clone()
+        .unwrap_or(I32Range(RangeInclusive::new(0, i32::MAX)))
+        .0;
+
+    // slotSize filter. Default is all values
+    let slot_size_filter = args.slot_size
+        .clone()
+        .unwrap_or(F32Range(RangeInclusive::new(f32::MIN, f32::MAX)))
+        .0;
+
     if fs::read_dir(INTERMEDIATE_FILES_DIR).is_err() {
         fs::create_dir(INTERMEDIATE_FILES_DIR)?;
     }
-    const ONELIFEDATA7_OBJECT_DATA_FILE: &str = "intermediate-files/OneLifeData7_Objects.json";
-    const TWOTECH_OBJECT_DATA_FILE: &str = "intermediate-files/twotech_Objects.json";
     // Force regeneration of intermediate-files
     if args.regenerate_data {
         println!("Generated data refresh triggered.");
@@ -319,28 +354,19 @@ fn main() -> Result<()> {
             .collect::<Vec<_>>()
         });
 
-    // numSlots filter. Default is all values > 0
-    let num_slots_filter = args.num_slots
-        .clone()
-        .unwrap_or(I32Range(RangeInclusive::new(0, i32::MAX)))
-        .0;
-
-    // slotSize filter. Default is all values
-    let slot_size_filter = args.slot_size
-        .clone()
-        .unwrap_or(F32Range(RangeInclusive::new(f32::MIN, f32::MAX)))
-        .0;
-
     shared_objects = shared_objects.into_iter()
         .filter(|(_, shared_obj)| {
             let onelifedata_obj = &shared_obj.one_life_game_data;
             let twotech_obj = &shared_obj.twotech_data;
             twotech_obj.craftable.unwrap_or(false)
             // Specific type of clothing
-            && (clothing_to_match.is_empty() ||
-                (twotech_obj.clothing.is_some()
-                    && clothing_to_match.contains(twotech_obj.clothing.as_ref().unwrap())
-                )
+            && (
+                clothing_to_match.is_empty()
+                || twotech_obj.clothing.as_ref().is_some_and(|clothing| clothing_to_match.contains(clothing))
+            )
+            && (
+                move_types_to_match.is_empty()
+                || twotech_obj.moveType.as_ref().is_some_and(|move_type| move_types_to_match.contains(move_type))
             )
             // Is over minimum pickup age filter (0 if not specified)
             && twotech_obj.minPickupAge.unwrap_or(0) >= args.min_pickup_age
@@ -355,8 +381,8 @@ fn main() -> Result<()> {
             )
             // Total food supplied by the item, including immediate food and bonus
             && (
-                args.total_food_value.is_none() ||
-                twotech_obj.foodValue.as_ref().is_some_and(|f| {
+                args.total_food_value.is_none()
+                || twotech_obj.foodValue.as_ref().is_some_and(|f| {
                     let food_value_filter = args.total_food_value
                         .clone()
                         .unwrap() // Okay to do because we're in the else if an is_none()
@@ -366,8 +392,8 @@ fn main() -> Result<()> {
             )
             // Immediate food supplied by the item
             && (
-                args.immediate_food_value.is_none() ||
-                twotech_obj.foodValue.as_ref().is_some_and(|f| {
+                args.immediate_food_value.is_none()
+                || twotech_obj.foodValue.as_ref().is_some_and(|f| {
                     let food_value_filter = args.immediate_food_value
                         .clone()
                         .unwrap()
@@ -377,8 +403,8 @@ fn main() -> Result<()> {
             )
             // Bonus food supplied by the item
             && (
-                args.bonus_food_value.is_none() ||
-                twotech_obj.foodValue.as_ref().is_some_and(|f| {
+                args.bonus_food_value.is_none()
+                || twotech_obj.foodValue.as_ref().is_some_and(|f| {
                     let food_value_filter = args.bonus_food_value
                         .clone()
                         .unwrap()
@@ -387,13 +413,11 @@ fn main() -> Result<()> {
                 })
             )
             && (
-                args.container_slot_type.is_none() ||
-                onelifedata_obj.slotStyle.as_ref().is_some_and(|ss| args.container_slot_type.as_ref().unwrap().contains(&ss))
+                args.container_slot_type.is_none()
+                || onelifedata_obj.slotStyle.as_ref().is_some_and(|ss| args.container_slot_type.as_ref().unwrap().contains(&ss))
             )
             // object isn't marked as removed
             && !&twotech_obj.name.clone().unwrap_or_default().contains("removed")
-            // Don't actually do this filter, but it shows using OneLifeData7 data to filter
-            // && onelifedata_obj.containable.is_some_and(|v| v)
         })
         .collect::<BTreeMap<_,_>>();
 
@@ -463,7 +487,7 @@ fn main() -> Result<()> {
         shared_objects
             .iter()
             .map(|(_, obj)| {
-                _wiki_format_line_food(obj)
+                wiki_formats::_wiki_format_line_movers(obj)
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -493,54 +517,6 @@ fn generate_wiki_cards(shared_game_objects: &BTreeMap<String, SharedGameObject>)
         }
     }
     output.join("\n")
-}
-
-fn _wiki_format_card_template_object_id(obj: &SharedGameObject) -> String {
-    let mut output = Vec::new();
-    let id = obj.twotech_data.id.as_ref().unwrap();
-    let name = obj.twotech_data.name.as_ref().unwrap();
-    // if name.contains(" - ") {
-    //     let name_portion = name.split(" - ").collect::<Vec<_>>()[0];
-    //     output.push(format!("| {name_portion} = https://twotech.twohoursonelife.com/{id}"))
-    // }
-    output.push(format!("| {name} = https://twotech.twohoursonelife.com/{id}"));
-    output.join("\n")
-}
-
-fn _wiki_format_line_slot_item(obj: &SharedGameObject) -> String {
-    format!("|-
-|{{{{Card|{}}}}}
-|{}
-|{}",
-        obj.twotech_data.name.clone().unwrap_or("ERROR: No name!".to_string()),
-        obj.twotech_data.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string()),
-        obj.twotech_data.slotSize.map(|n| n.to_string()).unwrap_or("0".to_string()),
-    )
-}
-
-fn _wiki_format_line_food(obj: &SharedGameObject) -> String {
-    let food_value = obj.twotech_data.foodValue.clone().unwrap_or(vec![0,0]);
-    format!("|-
-|{{{{Card|{}}}}}
-|{}
-|{}
-|{}",
-        obj.twotech_data.name.clone().unwrap_or("ERROR: No name!".to_string()),
-        food_value[0].to_string(),
-        food_value[1].to_string(),
-        food_value.iter().sum::<i32>()
-    )
-}
-
-fn _wiki_format_line_clothing_with_slots(obj: &SharedGameObject) -> String {
-    format!("|-
-|{{{{Card|{}}}}}
-|{:1.}%
-|{}",
-        obj.twotech_data.name.clone().unwrap_or("ERROR: No name!".to_string()),
-        obj.twotech_data.insulation.unwrap_or(0.0).mul(100.0).mul(1000000.0).round().div(1000000.0),
-        obj.twotech_data.numSlots.map(|n| n.to_string()).unwrap_or("0".to_string())
-    )
 }
 
 fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, object_database: &'a BTreeMap<String, SharedGameObject>) -> Option<&'a SharedGameObject> {

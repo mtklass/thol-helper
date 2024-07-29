@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use strum::EnumIter;
 use std::str::FromStr;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -20,7 +21,8 @@ pub struct TwoTechObject {
     pub clothing: Option<ClothingType>,
     pub heatValue: Option<i32>,
     pub mapChance: Option<f64>,
-    pub moveType: Option<i32>,
+    #[serde(deserialize_with = "deserialize_move_type", default = "GetNone")]
+    pub moveType: Option<MoveType>,
     pub numSlots: Option<i32>,
     pub numUses: Option<i32>,
     pub useDistance: Option<i32>,
@@ -38,8 +40,43 @@ pub struct TwoTechObject {
     pub slotSize: Option<f32>,
 }
 
-fn GetNone() -> Option<i32> {
+fn GetNone<T>() -> Option<T> {
     None
+}
+
+// Custom deserializer for moveType
+fn deserialize_move_type<'de, D>(deserializer: D) -> Result<Option<MoveType>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Number(n) => {
+            let move_type = n.as_i64();
+            if move_type.is_none() {
+                return Err(serde::de::Error::custom(&format!("Invalid value for move_type {}, doesn't fit into i64!", n.to_string())));
+            }
+            let move_type = match move_type.unwrap() {
+                0 => Some(MoveType::None),
+                1 => Some(MoveType::Chase),
+                2 => Some(MoveType::Flee),
+                3 => Some(MoveType::Random),
+                4 => Some(MoveType::North),
+                5 => Some(MoveType::South),
+                6 => Some(MoveType::East),
+                7 => Some(MoveType::West),
+                8 => Some(MoveType::AdjacentInteraction),
+                _ => None,
+            };
+            if move_type.is_none() {
+                Err(serde::de::Error::custom(&format!("Invalid value for move_type {}, out of range!", n.to_string())))
+            } else {
+                Ok(Some(move_type.unwrap()))
+            }
+        }
+        serde_json::Value::Null => Ok(Some(MoveType::None)),
+        _ => Err(serde::de::Error::custom("Unexpected value deserializing moveType")),
+    }
 }
 
 // Custom deserializer for moveDistance
@@ -52,7 +89,7 @@ where
         serde_json::Value::String(s) => s.parse::<i32>().map(Some).map_err(serde::de::Error::custom),
         serde_json::Value::Number(n) => Ok(Some(n.as_i64().unwrap() as i32)),
         serde_json::Value::Null => Ok(None),
-        _ => Err(serde::de::Error::custom("Unexpected value")),
+        _ => Err(serde::de::Error::custom("Unexpected value deserializing moveDistance")),
     }
 }
 
@@ -81,6 +118,71 @@ pub struct RecipeStep {
 pub struct Biome {
     pub id: Option<String>,
     pub spawnChance: Option<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize, EnumIter, PartialEq, Serialize)]
+pub enum MoveType {
+    // ["None", "Chase", "Flee", "Random", "North", "South", "East", "West"];
+    None,
+    Chase,
+    Flee,
+    Random,
+    North,
+    South,
+    East,
+    West,
+    AdjacentInteraction,
+}
+
+impl MoveType {
+    pub fn to_i32(&self) -> i32 {
+        match self {
+            MoveType::None => 0,
+            MoveType::Chase => 1,
+            MoveType::Flee => 2,
+            MoveType::Random => 3,
+            MoveType::North => 4,
+            MoveType::South => 5,
+            MoveType::East => 6,
+            MoveType::West => 7,
+            MoveType::AdjacentInteraction => 8,
+        }
+    }
+}
+
+impl ToString for MoveType {
+    fn to_string(&self) -> String {
+        match self {
+            MoveType::None => "None",
+            MoveType::Chase => "Chase",
+            MoveType::Flee => "Flee",
+            MoveType::Random => "Random",
+            MoveType::North => "North",
+            MoveType::South => "South",
+            MoveType::East => "East",
+            MoveType::West => "West",
+            MoveType::AdjacentInteraction => "AdjacentInteraction",
+        }.to_string()
+    }
+}
+
+impl FromStr for MoveType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().replace("_", "").replace(" ", "").as_str() {
+            "0" | "none" => Ok(MoveType::None),
+            "1" | "chase" => Ok(MoveType::Chase),
+            "2" | "flee" => Ok(MoveType::Flee),
+            "3" | "random" => Ok(MoveType::Random),
+            "4" | "north" => Ok(MoveType::North),
+            "5" | "south" => Ok(MoveType::South),
+            "6" | "east" => Ok(MoveType::East),
+            "7" | "west" => Ok(MoveType::West),
+            "8" | "adjacentinteraction" => Ok(MoveType::AdjacentInteraction),
+            _ => Err(anyhow!("Unknown moveType value {s}"))
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
