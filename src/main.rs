@@ -55,8 +55,10 @@ pub struct Args {
     twotech_data_directory: String,
     // Don't worry about this...it's an unfinished option that will possibly be broken out into another program.
     // The idea is to convert an object list into table entries for a wiki page. It's too hard-coded though, and again, should also be broken out.
-    #[arg(long, default_value="false")]
+    #[arg(long, default_value = "false")]
     wiki_table_output: bool,
+    #[arg(long, default_value = "false")]
+    generate_wiki_cards: bool,
 
 // Filtering options
     #[arg(long)]
@@ -447,7 +449,6 @@ fn main() -> Result<()> {
             })
             .collect::<BTreeMap<_,_>>();
     }
-
     // Finally, sort the objects by their name, since it's the most human-friendly ordering
     shared_objects = shared_objects
         .into_values()
@@ -455,7 +456,9 @@ fn main() -> Result<()> {
         .map(|v| (v.twotech_data.name.clone().unwrap(), v))
         .collect::<BTreeMap<_,_>>();
 
-    if args.wiki_table_output {
+    if args.generate_wiki_cards {
+        std::fs::write(&args.output_file, generate_wiki_cards(&initial_shared_objects))?;
+    } else if args.wiki_table_output {
         let wiki_output_data =
         shared_objects
             .iter()
@@ -472,6 +475,24 @@ fn main() -> Result<()> {
     }
     println!("Wrote {} matching objects' data to output file at {}", shared_objects.len(), args.output_file);
     Ok(())
+}
+
+fn generate_wiki_cards(shared_game_objects: &BTreeMap<String, SharedGameObject>) -> String {
+    let names_encountered = Vec::new();
+    let mut output = Vec::new();
+    for (id, obj) in shared_game_objects {
+        let name = obj.twotech_data.name.as_ref().unwrap();
+        if !names_encountered.contains(name) {
+            if name.contains(" - ") {
+                let name_portion = name.split(" - ").collect::<Vec<_>>()[0].to_string();
+                if !names_encountered.contains(&name_portion) {
+                    output.push(format!("| {name_portion} = https://twotech.twohoursonelife.com/{id}"))
+                }
+            }
+            output.push(format!("| {name} = https://twotech.twohoursonelife.com/{id}"));
+        }
+    }
+    output.join("\n")
 }
 
 fn _wiki_format_card_template_object_id(obj: &SharedGameObject) -> String {
