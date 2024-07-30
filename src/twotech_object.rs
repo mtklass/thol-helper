@@ -65,7 +65,7 @@ where
                 5 => Some(MoveType::South),
                 6 => Some(MoveType::East),
                 7 => Some(MoveType::West),
-                8 => Some(MoveType::AdjacentInteraction),
+                8 => Some(MoveType::Find),
                 _ => None,
             };
             if move_type.is_none() {
@@ -131,7 +131,7 @@ pub enum MoveType {
     South,
     East,
     West,
-    AdjacentInteraction,
+    Find,
 }
 
 impl MoveType {
@@ -145,7 +145,7 @@ impl MoveType {
             MoveType::South => 5,
             MoveType::East => 6,
             MoveType::West => 7,
-            MoveType::AdjacentInteraction => 8,
+            MoveType::Find => 8,
         }
     }
 }
@@ -161,7 +161,7 @@ impl ToString for MoveType {
             MoveType::South => "South",
             MoveType::East => "East",
             MoveType::West => "West",
-            MoveType::AdjacentInteraction => "AdjacentInteraction",
+            MoveType::Find => "Find",
         }.to_string()
     }
 }
@@ -179,7 +179,7 @@ impl FromStr for MoveType {
             "5" | "south" => Ok(MoveType::South),
             "6" | "east" => Ok(MoveType::East),
             "7" | "west" => Ok(MoveType::West),
-            "8" | "adjacentinteraction" => Ok(MoveType::AdjacentInteraction),
+            "8" | "find" => Ok(MoveType::Find),
             _ => Err(anyhow!("Unknown moveType value {s}"))
         }
     }

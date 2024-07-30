@@ -23,6 +23,7 @@ use strum::IntoEnumIterator;
 use twotech_object::MoveType;
 use twotech_object::{ClothingType, TwoTechObject};
 use serde_json::Value;
+use wiki_formats::_generate_wiki_cards;
 
 const DEFAULT_OUTOUT_FILENAME: &str = "output.json";
 
@@ -149,18 +150,27 @@ fn main() -> Result<()> {
             args.clothing
             .unwrap_or_default()
             .split(",")
+            .collect::<Vec<_>>()
+            .iter()
             .map(|c| ClothingType::from_str(c).unwrap())
             .collect::<Vec<_>>();
     }
     let mut move_types_to_match = Vec::new();
     if args.move_type.is_some() {
         let  move_type_args = args.move_type.unwrap_or_default();
-        let mut move_type_arg_parts = move_type_args.split(",");
-        if move_type_arg_parts.any(|p| p == "all") {
+        let move_type_arg_parts = move_type_args.split(",").collect::<Vec<_>>();
+        if move_type_arg_parts.iter().any(|p| p.to_lowercase().as_str() == "all") {
             move_types_to_match = MoveType::iter().collect();
+        } else if move_type_arg_parts.iter().any(|p| {
+            p.to_lowercase().replace("_", "").replace(" ", "").as_str() == "notnone"
+        }) {
+            move_types_to_match = MoveType::iter().filter(|move_type| move_type != &MoveType::None).collect();
         } else {
             move_types_to_match = move_type_arg_parts
-                .map(|move_type| MoveType::from_str(move_type).expect(&format!("Could not parse argument string into MoveType: {move_type}")))
+                .iter()
+                .map(|move_type| {
+                    MoveType::from_str(move_type).expect(&format!("Could not parse argument string into MoveType: {move_type}"))
+                })
                 .collect::<Vec<_>>();
         }
     }
@@ -481,13 +491,13 @@ fn main() -> Result<()> {
         .collect::<BTreeMap<_,_>>();
 
     if args.generate_wiki_cards {
-        std::fs::write(&args.output_file, generate_wiki_cards(&initial_shared_objects))?;
+        std::fs::write(&args.output_file, _generate_wiki_cards(&initial_shared_objects))?;
     } else if args.wiki_table_output {
         let wiki_output_data =
         shared_objects
             .iter()
             .map(|(_, obj)| {
-                wiki_formats::_wiki_format_line_movers(obj)
+                wiki_formats::_wiki_format_line_single_mover_type(obj)
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -499,24 +509,6 @@ fn main() -> Result<()> {
     }
     println!("Wrote {} matching objects' data to output file at {}", shared_objects.len(), args.output_file);
     Ok(())
-}
-
-fn generate_wiki_cards(shared_game_objects: &BTreeMap<String, SharedGameObject>) -> String {
-    let names_encountered = Vec::new();
-    let mut output = Vec::new();
-    for (id, obj) in shared_game_objects {
-        let name = obj.twotech_data.name.as_ref().unwrap();
-        if !names_encountered.contains(name) {
-            if name.contains(" - ") {
-                let name_portion = name.split(" - ").collect::<Vec<_>>()[0].to_string();
-                if !names_encountered.contains(&name_portion) {
-                    output.push(format!("| {name_portion} = https://twotech.twohoursonelife.com/{id}"))
-                }
-            }
-            output.push(format!("| {name} = https://twotech.twohoursonelife.com/{id}"));
-        }
-    }
-    output.join("\n")
 }
 
 fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, object_database: &'a BTreeMap<String, SharedGameObject>) -> Option<&'a SharedGameObject> {

@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::str::FromStr;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
