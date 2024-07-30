@@ -6,8 +6,8 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TwoTechObject {
-    // TODO: Make id not optional. That should really be required, shouldn't it?
-    pub id: Option<String>,
+    pub id: i32,
+    pub name: String,
     pub recipe: Option<ObjectRecipe>,
     pub speedMult: Option<f64>,
     pub version:Option<i32>,
@@ -32,7 +32,6 @@ pub struct TwoTechObject {
     pub size: Option<f32>,
     pub sounds: Option<Vec<String>>,
     pub useChance: Option<f64>,
-    pub name: Option<String>,
     pub techTree: Option<Vec<TechTreeNode>>,
     #[serde(deserialize_with = "deserialize_move_distance", default = "GetNone")]
     pub moveDistance: Option<i32>,
@@ -122,7 +121,6 @@ pub struct Biome {
 
 #[derive(Clone, Debug, Deserialize, EnumIter, PartialEq, Serialize)]
 pub enum MoveType {
-    // ["None", "Chase", "Flee", "Random", "North", "South", "East", "West"];
     None,
     Chase,
     Flee,

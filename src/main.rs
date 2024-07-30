@@ -201,7 +201,7 @@ fn main() -> Result<()> {
     // If it didn't make sense or it didn't exist, recreate data and save to intermediate-files/OneLifeData7_Objects.json
     // If it parsed, great!
     let initial_one_life_game_objects = if let Ok(one_life_file_data) = fs::read_to_string(ONELIFEDATA7_OBJECT_DATA_FILE) {
-        serde_json::from_str::<BTreeMap<String, OneLifeDataObject>>(one_life_file_data.as_str())?
+        serde_json::from_str::<BTreeMap<i32, OneLifeDataObject>>(one_life_file_data.as_str())?
     } else {
         println!("Intermediate file for OneLifeData7 object data is not present, we must regenerate it from OneLifeData7 data.");
         if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
@@ -233,11 +233,15 @@ fn main() -> Result<()> {
                                 Some(id) => id.as_str(),
                                 None => continue,
                             };
+                            let object_id = match object_id.parse::<i32>() {
+                                Ok(id) => id,
+                                Err(_) => continue,
+                            };
                             let mut file = fs::File::open(one_life_data_entry.path()).unwrap();
                             let mut contents = String::new();
                             file.read_to_string(&mut contents).unwrap();
                             if let Ok(object) = OneLifeDataObject::from_str(&contents) {
-                                one_life_game_objects.insert(object_id.to_string(), object);
+                                one_life_game_objects.insert(object_id, object);
                             } else {
                                 println!("Error converting file contents to object: {}", one_life_data_entry.path().to_string_lossy());
                             }
@@ -252,7 +256,7 @@ fn main() -> Result<()> {
     };
 
     let initial_twotech_objects = if let Ok(twotech_file_data) = fs::read_to_string(TWOTECH_OBJECT_DATA_FILE) {
-        serde_json::from_str::<BTreeMap<String, TwoTechObject>>(twotech_file_data.as_str())?
+        serde_json::from_str::<BTreeMap<i32, TwoTechObject>>(twotech_file_data.as_str())?
     } else {
         println!("Intermediate file for twotech object data is not present, we must regenerate it from twotech data.");
         if let Err(twotech_dir_err) = fs::read_dir(&args.twotech_data_directory) {
@@ -274,9 +278,7 @@ fn main() -> Result<()> {
                     let json: Value = serde_json::from_reader(reader).expect("Unable to parse JSON");
                     let json_string = serde_json::to_string(&json)?;
                     let object_data: TwoTechObject = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
-                    if let Some (id) = object_data.id.clone() {
-                        twotech_objects.insert(id, object_data);
-                    }
+                    twotech_objects.insert(object_data.id, object_data);
                 }
                 Err(e) => println!("entry error: {:?}", e),
             }
@@ -321,15 +323,15 @@ fn main() -> Result<()> {
                 ingredient_set.0
                 .into_iter()
                 .filter_map(|ingredient| {
-                    if ingredient.parse::<i32>().is_ok() {
-                        Some(ingredient)
+                    let ingredient_id = ingredient.parse::<i32>();
+                    if ingredient_id.is_ok() {
+                        Some(ingredient_id.unwrap())
                     } else {
                         initial_shared_objects
                         .iter()
                         .map(|(_, obj)| &obj.twotech_data)
-                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                        .map(|o| o.id.clone())
-                        .flatten()
+                        .find(|o| o.name == ingredient)
+                        .map(|o| o.id)
                     }
                 })
                 .collect::<Vec<_>>()
@@ -348,15 +350,15 @@ fn main() -> Result<()> {
                 ingredient_set.0
                 .into_iter()
                 .filter_map(|ingredient| {
-                    if ingredient.parse::<i32>().is_ok() {
-                        Some(ingredient)
+                    let ingredient_id = ingredient.parse::<i32>();
+                    if ingredient_id.is_ok() {
+                        Some(ingredient_id.unwrap())
                     } else {
                         initial_shared_objects
                         .iter()
                         .map(|(_, obj)| &obj.twotech_data)
-                        .find(|o| o.name.as_ref().is_some_and(|n| n == &ingredient))
-                        .map(|o| o.id.clone())
-                        .flatten()
+                        .find(|o| o.name == ingredient)
+                        .map(|o| o.id)
                     }
                 })
                 .collect::<Vec<_>>()
@@ -427,7 +429,7 @@ fn main() -> Result<()> {
                 || onelifedata_obj.slotStyle.as_ref().is_some_and(|ss| args.container_slot_type.as_ref().unwrap().contains(&ss))
             )
             // object isn't marked as removed
-            && !&twotech_obj.name.clone().unwrap_or_default().contains("removed")
+            && !&twotech_obj.name.contains("removed")
         })
         .collect::<BTreeMap<_,_>>();
 
@@ -443,7 +445,7 @@ fn main() -> Result<()> {
                     let ingredient_set_matches = !ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_shared_objects))
+                        .map(|i| find_target_ingredient(obj, i.to_owned(), &initial_shared_objects))
                         .collect::<Vec<_>>()
                         .contains(&None);
 
@@ -470,7 +472,7 @@ fn main() -> Result<()> {
                     let missing_an_ingredient = ingredient_set
                         .iter()
                         // Take each ID string and map it to a bool saying whether the object has this ID has an ingredient
-                        .map(|i| find_target_ingredient(obj, i.as_str(), &initial_shared_objects))
+                        .map(|i| find_target_ingredient(obj, i.to_owned(), &initial_shared_objects))
                         .collect::<Vec<_>>()
                         .contains(&None);
                     if !missing_an_ingredient {
@@ -484,14 +486,13 @@ fn main() -> Result<()> {
             .collect::<BTreeMap<_,_>>();
     }
     // Finally, sort the objects by their name, since it's the most human-friendly ordering
-    shared_objects = shared_objects
+    let shared_objects = shared_objects
         .into_values()
-        .filter(|v| { v.twotech_data.name.is_some() })
-        .map(|v| (v.twotech_data.name.clone().unwrap(), v))
+        .map(|v| (v.twotech_data.name.clone(), v))
         .collect::<BTreeMap<_,_>>();
 
     if args.generate_wiki_cards {
-        std::fs::write(&args.output_file, _generate_wiki_cards(&initial_shared_objects))?;
+        std::fs::write(&args.output_file, _generate_wiki_cards(&shared_objects))?;
     } else if args.wiki_table_output {
         let wiki_output_data =
         shared_objects
@@ -511,24 +512,18 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, object_database: &'a BTreeMap<String, SharedGameObject>) -> Option<&'a SharedGameObject> {
+fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: i32, object_database: &'a BTreeMap<i32, SharedGameObject>) -> Option<&'a SharedGameObject> {
     let mut stack = Vec::new();
     let mut visited = HashSet::new();
     stack.push(root_obj);
-    // println!("Searching for ({:>5}, {}) in ({:>5}, {})",
-    //     target_id,
-    //     object_database.get(target_id).map_or("", |_, o| o.name.as_ref().map(|s| s.as_str()).unwrap_or("")),
-    //     root_obj.id.as_ref().map_or("", |s| s.as_str()),
-    //     root_obj.name.as_ref().map_or("", |s| s.as_str()),
-    // );
     while let Some(obj) = stack.pop() {
         // If object has no ID or has already been visited, skip it
-        let obj_id = obj.twotech_data.id.clone().unwrap_or_default();
-        if obj_id.is_empty() || visited.contains(&obj_id) {
+        let obj_id = obj.twotech_data.id;
+        if visited.contains(&obj_id) {
             continue;
         }
         // If current object is the ID we're looking for, return true!
-        if obj_id.as_str() == target_id {
+        if obj_id == target_id {
             return Some(obj);
         }
         // println!("New Total: {} after adding object ID to visited: {obj_id}", visited.len());
@@ -542,12 +537,13 @@ fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, o
         // Check each ingredient for being the target_id, and if we haven't yet visited the ingredient, push it to the list
         if let Some(ingredients) = obj_recipe.ingredients.as_ref().map(|ivec| HashSet::<&String>::from_iter(ivec.iter())) {
             for ingredient in ingredients {
-                if ingredient.as_str() == target_id {
+                let ingredient = ingredient.parse().unwrap_or(-1);
+                if ingredient == target_id {
                     return Some(obj);
                 }
-                if !visited.contains(ingredient) {
+                if !visited.contains(&ingredient) {
                     // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
-                    if let Some(ingredient_object) = object_database.get(ingredient) {
+                    if let Some(ingredient_object) = object_database.get(&ingredient) {
                         stack.push(ingredient_object);
                     }
                 }
@@ -560,8 +556,8 @@ fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, o
         .unwrap_or(&Vec::default())
         .into_iter()
         .flatten()
-        .flat_map(|rs| [rs.actorID.clone().unwrap_or_default(), rs.targetID.clone().unwrap_or_default()])
-        .filter(|ingredient| !visited.contains(ingredient))
+        .flat_map(|rs| [rs.actorID.clone().unwrap_or("-1".to_string()).parse().unwrap_or(-1), rs.targetID.clone().unwrap_or("-1".to_string()).parse().unwrap_or(-1)])
+        .filter(|ingredient| !visited.contains(&ingredient))
         .filter_map(|ingredient| object_database.get(&ingredient))
         .for_each(|recipe_ingredient_object| stack.push(recipe_ingredient_object));
 
@@ -574,13 +570,17 @@ fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: &str, o
                 // We then need to check if we've already visited each ingredient, and if not, push it to the stack
                 for ingredient in ingredients {
                     // println!("Checking ingredient {ingredient}");
-                    if ingredient.as_str() == target_id {
+                    let ingredient = match ingredient.parse::<i32>() {
+                        Ok(id) => id,
+                        Err(_) => return false,
+                    };
+                    if ingredient == target_id {
                         println!("Ingredient {ingredient} matched!");
                         return true;
                     }
-                    if !visited.contains(ingredient) {
+                    if !visited.contains(&ingredient) {
                         // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
-                        if let Some(ingredient_object) = object_database.get(ingredient) {
+                        if let Some(ingredient_object) = object_database.get(&ingredient) {
                             stack.push(ingredient_object);
                         } else {
                             println!("Oh crud");
