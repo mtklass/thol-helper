@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct TwoTechObject {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub recipe: Option<ObjectRecipe>,
     pub speedMult: Option<f64>,
@@ -69,6 +69,25 @@ where
             };
             if move_type.is_none() {
                 Err(serde::de::Error::custom(&format!("Invalid value for move_type {}, out of range!", n.to_string())))
+            } else {
+                Ok(Some(move_type.unwrap()))
+            }
+        }
+        serde_json::Value::String(s) => {
+            let move_type = match s.to_lowercase().as_str() {
+                "none" => Some(MoveType::None),
+                "chase" => Some(MoveType::Chase),
+                "flee" => Some(MoveType::Flee),
+                "random" => Some(MoveType::Random),
+                "north" => Some(MoveType::North),
+                "south" => Some(MoveType::South),
+                "east" => Some(MoveType::East),
+                "west" => Some(MoveType::West),
+                "find" => Some(MoveType::Find),
+                _ => None
+            };
+            if move_type.is_none() {
+                Err(serde::de::Error::custom(&format!("Invalid value for move_type {}, no movement type match found!", s)))
             } else {
                 Ok(Some(move_type.unwrap()))
             }

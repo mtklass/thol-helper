@@ -9,9 +9,9 @@ use std::io::Write;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::ops::RangeInclusive;
-use std::process;
 use std::str::FromStr;
 
+use anyhow::Context;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use glob::glob;
@@ -187,7 +187,7 @@ fn main() -> Result<()> {
         .0;
 
     if fs::read_dir(INTERMEDIATE_FILES_DIR).is_err() {
-        fs::create_dir(INTERMEDIATE_FILES_DIR)?;
+        fs::create_dir(INTERMEDIATE_FILES_DIR).context("Could not create intermediate files directory")?;
     }
     // Force regeneration of intermediate-files
     if args.regenerate_data {
@@ -201,7 +201,7 @@ fn main() -> Result<()> {
     // If it didn't make sense or it didn't exist, recreate data and save to intermediate-files/OneLifeData7_Objects.json
     // If it parsed, great!
     let initial_one_life_game_objects = if let Ok(one_life_file_data) = fs::read_to_string(ONELIFEDATA7_OBJECT_DATA_FILE) {
-        serde_json::from_str::<BTreeMap<i32, OneLifeDataObject>>(one_life_file_data.as_str())?
+        serde_json::from_str::<BTreeMap<String, OneLifeDataObject>>(one_life_file_data.as_str()).context("Could not parse OneLifeData7 JSON data into Rust objects")?
     } else {
         println!("Intermediate file for OneLifeData7 object data is not present, we must regenerate it from OneLifeData7 data.");
         if let Err(onelife_dir_err) = fs::read_dir(&args.one_life_data_directory) {
@@ -213,7 +213,7 @@ fn main() -> Result<()> {
             one_life_data_directory.push('/');
         }
         let one_life_object_directory = one_life_data_directory + "objects/";
-        let one_life_object_dir_contents = fs::read_dir(one_life_object_directory)?;
+        let one_life_object_dir_contents = fs::read_dir(one_life_object_directory).context("Could not read OneLifeData7 objects directory")?;
         let mut one_life_game_objects = BTreeMap::new();
         for one_life_data_entry in one_life_object_dir_contents {
             if let Ok(one_life_data_entry) = one_life_data_entry {
@@ -230,12 +230,8 @@ fn main() -> Result<()> {
                             // println!("Parsing file {file_name}");
                             // Read the file into a string
                             let object_id = match captures.get(1) {
-                                Some(id) => id.as_str(),
+                                Some(id) => id.as_str().to_string(),
                                 None => continue,
-                            };
-                            let object_id = match object_id.parse::<i32>() {
-                                Ok(id) => id,
-                                Err(_) => continue,
                             };
                             let mut file = fs::File::open(one_life_data_entry.path()).unwrap();
                             let mut contents = String::new();
@@ -251,12 +247,15 @@ fn main() -> Result<()> {
             }
         }
         println!("Parsed {} OneLifeData7 objects", one_life_game_objects.len());
-        fs::write(ONELIFEDATA7_OBJECT_DATA_FILE, serde_json::to_string(&one_life_game_objects)?)?;
+        fs::write(
+            ONELIFEDATA7_OBJECT_DATA_FILE, 
+            serde_json::to_string_pretty(&one_life_game_objects).context("Could not serialize OneLifeData7 data for caching")?
+        ).context("Could not write to OneLifeData7 object cache file")?;
         one_life_game_objects
     };
 
     let initial_twotech_objects = if let Ok(twotech_file_data) = fs::read_to_string(TWOTECH_OBJECT_DATA_FILE) {
-        serde_json::from_str::<BTreeMap<i32, TwoTechObject>>(twotech_file_data.as_str())?
+        serde_json::from_str::<BTreeMap<String, TwoTechObject>>(twotech_file_data.as_str()).context("Could not parse twotech JSON data into Rust objects")?
     } else {
         println!("Intermediate file for twotech object data is not present, we must regenerate it from twotech data.");
         if let Err(twotech_dir_err) = fs::read_dir(&args.twotech_data_directory) {
@@ -270,21 +269,24 @@ fn main() -> Result<()> {
         let twotech_object_directory = twotech_data_directory.clone() + "public/static/objects/";
 
         let mut twotech_objects = BTreeMap::new();
-        for entry in glob(&format!("./{twotech_object_directory}/*.json")).expect("Failed to read glob pattern") {
+        for entry in glob(&format!("./{twotech_object_directory}/*.json")).context("Failed to read glob pattern")? {
             match entry {
                 Ok(path) => {
-                    let file = File::open(&path).expect("Unable to open file");
+                    let file = File::open(&path).context("Unable to open file")?;
                     let reader = BufReader::new(file);
-                    let json: Value = serde_json::from_reader(reader).expect("Unable to parse JSON");
-                    let json_string = serde_json::to_string(&json)?;
-                    let object_data: TwoTechObject = serde_json::from_str(&json_string).expect(&format!("JSON:\n{}", serde_json::to_string_pretty(&json)?));
-                    twotech_objects.insert(object_data.id, object_data);
+                    let json: Value = serde_json::from_reader(reader).context("Unable to parse JSON")?;
+                    let json_string = serde_json::to_string_pretty(&json).context("Could not serialize JSON value to String")?;
+                    let object_data: TwoTechObject = serde_json::from_str(&json_string).context(format!("JSON:\n{}", json_string))?;
+                    twotech_objects.insert(object_data.id.clone(), object_data);
                 }
                 Err(e) => println!("entry error: {:?}", e),
             }
         }
         println!("Parsed {} twotech objects", twotech_objects.len());
-        fs::write(TWOTECH_OBJECT_DATA_FILE, serde_json::to_string(&twotech_objects)?)?;
+        fs::write(
+            TWOTECH_OBJECT_DATA_FILE,
+            serde_json::to_string_pretty(&twotech_objects).context("Could not serialize twotech data for caching")?
+        ).context("Could not write to twotech object cache file")?;
         twotech_objects
     };
 
@@ -323,16 +325,11 @@ fn main() -> Result<()> {
                 ingredient_set.0
                 .into_iter()
                 .filter_map(|ingredient| {
-                    let ingredient_id = ingredient.parse::<i32>();
-                    if ingredient_id.is_ok() {
-                        Some(ingredient_id.unwrap())
-                    } else {
-                        initial_shared_objects
+                    initial_shared_objects
                         .iter()
                         .map(|(_, obj)| &obj.twotech_data)
                         .find(|o| o.name == ingredient)
-                        .map(|o| o.id)
-                    }
+                        .map(|o| o.id.clone())
                 })
                 .collect::<Vec<_>>()
             })
@@ -350,16 +347,11 @@ fn main() -> Result<()> {
                 ingredient_set.0
                 .into_iter()
                 .filter_map(|ingredient| {
-                    let ingredient_id = ingredient.parse::<i32>();
-                    if ingredient_id.is_ok() {
-                        Some(ingredient_id.unwrap())
-                    } else {
-                        initial_shared_objects
+                    initial_shared_objects
                         .iter()
                         .map(|(_, obj)| &obj.twotech_data)
                         .find(|o| o.name == ingredient)
-                        .map(|o| o.id)
-                    }
+                        .map(|o| o.id.clone())
                 })
                 .collect::<Vec<_>>()
             })
@@ -492,7 +484,7 @@ fn main() -> Result<()> {
         .collect::<BTreeMap<_,_>>();
 
     if args.generate_wiki_cards {
-        std::fs::write(&args.output_file, _generate_wiki_cards(&shared_objects))?;
+        std::fs::write(&args.output_file, _generate_wiki_cards(&shared_objects)).context("Error generating wiki cards")?;
     } else if args.wiki_table_output {
         let wiki_output_data =
         shared_objects
@@ -502,28 +494,28 @@ fn main() -> Result<()> {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        std::fs::write(&args.output_file, wiki_output_data)?;
+        std::fs::write(&args.output_file, wiki_output_data).context("Could not write to output file")?;
     } else {
         // Serialize the object list to JSON and save to the output file location
-        let objects_as_string = serde_json::to_string(&shared_objects)?;
-        std::fs::write(&args.output_file, objects_as_string)?;
+        let objects_as_string = serde_json::to_string(&shared_objects).context("Could not serialize SharedGameObject to String")?;
+        std::fs::write(&args.output_file, objects_as_string).context("Could not write to output file")?;
     }
     println!("Wrote {} matching objects' data to output file at {}", shared_objects.len(), args.output_file);
     Ok(())
 }
 
-fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: i32, object_database: &'a BTreeMap<i32, SharedGameObject>) -> Option<&'a SharedGameObject> {
+fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: String, object_database: &'a BTreeMap<String, SharedGameObject>) -> Option<&'a SharedGameObject> {
     let mut stack = Vec::new();
     let mut visited = HashSet::new();
     stack.push(root_obj);
     while let Some(obj) = stack.pop() {
         // If object has no ID or has already been visited, skip it
-        let obj_id = obj.twotech_data.id;
-        if visited.contains(&obj_id) {
+        let obj_id = &obj.twotech_data.id;
+        if visited.contains(obj_id) {
             continue;
         }
         // If current object is the ID we're looking for, return true!
-        if obj_id == target_id {
+        if obj_id == &target_id {
             return Some(obj);
         }
         // println!("New Total: {} after adding object ID to visited: {obj_id}", visited.len());
@@ -537,13 +529,12 @@ fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: i32, ob
         // Check each ingredient for being the target_id, and if we haven't yet visited the ingredient, push it to the list
         if let Some(ingredients) = obj_recipe.ingredients.as_ref().map(|ivec| HashSet::<&String>::from_iter(ivec.iter())) {
             for ingredient in ingredients {
-                let ingredient = ingredient.parse().unwrap_or(-1);
-                if ingredient == target_id {
+                if ingredient == &target_id {
                     return Some(obj);
                 }
-                if !visited.contains(&ingredient) {
+                if !visited.contains(ingredient) {
                     // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
-                    if let Some(ingredient_object) = object_database.get(&ingredient) {
+                    if let Some(ingredient_object) = object_database.get(ingredient) {
                         stack.push(ingredient_object);
                     }
                 }
@@ -556,8 +547,8 @@ fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: i32, ob
         .unwrap_or(&Vec::default())
         .into_iter()
         .flatten()
-        .flat_map(|rs| [rs.actorID.clone().unwrap_or("-1".to_string()).parse().unwrap_or(-1), rs.targetID.clone().unwrap_or("-1".to_string()).parse().unwrap_or(-1)])
-        .filter(|ingredient| !visited.contains(&ingredient))
+        .flat_map(|rs| [rs.actorID.clone().unwrap_or("-1".to_string()), rs.targetID.clone().unwrap_or("-1".to_string())])
+        .filter(|ingredient| !visited.contains(ingredient))
         .filter_map(|ingredient| object_database.get(&ingredient))
         .for_each(|recipe_ingredient_object| stack.push(recipe_ingredient_object));
 
@@ -570,22 +561,12 @@ fn find_target_ingredient<'a>(root_obj: &'a SharedGameObject, target_id: i32, ob
                 // We then need to check if we've already visited each ingredient, and if not, push it to the stack
                 for ingredient in ingredients {
                     // println!("Checking ingredient {ingredient}");
-                    let ingredient = match ingredient.parse::<i32>() {
-                        Ok(id) => id,
-                        Err(_) => return false,
-                    };
-                    if ingredient == target_id {
+                    if ingredient == &target_id {
                         println!("Ingredient {ingredient} matched!");
                         return true;
                     }
-                    if !visited.contains(&ingredient) {
-                        // if let Some(ingredient_object) = get_object_by_id(&ingredient, object_database) {
-                        if let Some(ingredient_object) = object_database.get(&ingredient) {
-                            stack.push(ingredient_object);
-                        } else {
-                            println!("Oh crud");
-                            process::exit(-10);
-                        }
+                    if !visited.contains(ingredient) {
+                        stack.push(object_database.get(ingredient).context("Could not get ingredient from object database...").unwrap());
                     }
                 }
                 // If none of the ingredients contained the target_id, return false
