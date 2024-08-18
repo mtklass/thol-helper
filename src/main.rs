@@ -10,6 +10,7 @@ use std::fs::{self, File};
 use std::io::BufReader;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
+use std::time::Instant;
 
 use anyhow::Context;
 use anyhow::{anyhow, Result};
@@ -129,6 +130,8 @@ impl FromStr for IngredientSet {
 }
 
 fn main() -> Result<()> {
+    let start = Instant::now();
+    let now = start.clone();
     const INTERMEDIATE_FILES_DIR: &str = "intermediate-files";
     const ONELIFEDATA7_OBJECT_DATA_FILE: &str = "intermediate-files/OneLifeData7_Objects.json";
     const TWOTECH_OBJECT_DATA_FILE: &str = "intermediate-files/twotech_Objects.json";
@@ -315,6 +318,9 @@ fn main() -> Result<()> {
     }
 
     let mut shared_objects = initial_shared_objects.clone();
+    let elapsed = now.elapsed();
+    println!("Initial shared object creation took {} seconds", (elapsed.as_millis() as f32)/1000.0);
+    let now = Instant::now();
 
     // Prepare ingredient sets to exclude based on user input
     let ingredient_sets_to_exclude = args.without_ingredients
@@ -357,6 +363,10 @@ fn main() -> Result<()> {
             })
             .collect::<Vec<_>>()
         });
+
+    let elapsed = now.elapsed();
+    println!("Ingredient set parsing took {} seconds", (elapsed.as_millis() as f32)/1000.0);
+    let now = Instant::now();
 
     shared_objects = shared_objects.into_iter()
         .filter(|(_, shared_obj)| {
@@ -425,6 +435,10 @@ fn main() -> Result<()> {
         })
         .collect::<BTreeMap<_,_>>();
 
+    let elapsed = now.elapsed();
+    println!("Main object filtering took {} seconds", (elapsed.as_millis() as f32)/1000.0);
+    let now = Instant::now();
+
     // Filter for objects that contain any set of other object IDs in its recipe (recursively)
     if let Some(ingredient_sets_to_find) = ingredient_sets_to_find {
         shared_objects = shared_objects.into_iter()
@@ -477,6 +491,11 @@ fn main() -> Result<()> {
             })
             .collect::<BTreeMap<_,_>>();
     }
+
+    let elapsed = now.elapsed();
+    println!("Ingredient filtering took {} seconds", (elapsed.as_millis() as f32)/1000.0);
+    let now = Instant::now();
+
     // Finally, sort the objects by their name, since it's the most human-friendly ordering
     let shared_objects = shared_objects
         .into_values()
@@ -501,6 +520,12 @@ fn main() -> Result<()> {
         std::fs::write(&args.output_file, objects_as_string).context("Could not write to output file")?;
     }
     println!("Wrote {} matching objects' data to output file at {}", shared_objects.len(), args.output_file);
+    let elapsed = now.elapsed();
+    println!("Sorting and output took {} seconds", (elapsed.as_millis() as f32)/1000.0);
+    let elapsed = start.elapsed();
+    println!("Entire program took {:.2} seconds", (elapsed.as_millis() as f32)/1000.0);
+    let now = Instant::now();
+
     Ok(())
 }
 
